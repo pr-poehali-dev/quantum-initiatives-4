@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Mail, Phone, MapPin, Send, MessageCircle } from "lucide-react"
+import func2url from "../../backend/func2url.json"
 
 export function ContactSection() {
   const [formData, setFormData] = useState({
@@ -13,11 +14,23 @@ export function ContactSection() {
     phone: "",
     message: "",
   })
+  const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle")
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    console.log("[v0] Form submitted:", formData)
-    // Handle form submission
+    setStatus("loading")
+    try {
+      const res = await fetch(func2url["send-telegram"], {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
+      })
+      if (!res.ok) throw new Error()
+      setStatus("success")
+      setFormData({ name: "", email: "", phone: "", message: "" })
+    } catch {
+      setStatus("error")
+    }
   }
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -113,10 +126,16 @@ export function ContactSection() {
                       className="transition-all focus:scale-[1.02]"
                     />
                   </div>
-                  <Button type="submit" size="lg" className="w-full sm:w-auto group">
+                  <Button type="submit" size="lg" className="w-full sm:w-auto group" disabled={status === "loading"}>
                     <Send className="mr-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
-                    Отправить
+                    {status === "loading" ? "Отправляем..." : "Отправить"}
                   </Button>
+                  {status === "success" && (
+                    <p className="text-sm text-green-500 font-medium">Заявка отправлена! Мы свяжемся с вами в ближайшее время.</p>
+                  )}
+                  {status === "error" && (
+                    <p className="text-sm text-red-500 font-medium">Ошибка отправки. Напишите нам напрямую в Telegram.</p>
+                  )}
                 </form>
               </CardContent>
             </Card>
