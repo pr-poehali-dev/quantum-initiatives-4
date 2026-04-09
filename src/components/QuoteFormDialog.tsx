@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import func2url from "../../backend/func2url.json"
 
 interface QuoteFormDialogProps {
   packageName?: string
@@ -23,6 +24,7 @@ interface QuoteFormDialogProps {
 
 export function QuoteFormDialog({ packageName, variant = "default", className, children }: QuoteFormDialogProps) {
   const [open, setOpen] = useState(false)
+  const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle")
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -32,20 +34,28 @@ export function QuoteFormDialog({ packageName, variant = "default", className, c
     message: "",
   })
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    console.log("[v0] Quote form submitted:", formData)
-    // Here you would typically send the form data to your backend
-    setOpen(false)
-    // Reset form
-    setFormData({
-      name: "",
-      email: "",
-      phone: "",
-      company: "",
-      package: packageName || "",
-      message: "",
-    })
+    setStatus("loading")
+    try {
+      const res = await fetch(func2url["send-telegram"], {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
+      })
+      if (!res.ok) throw new Error()
+      setStatus("success")
+      setFormData({
+        name: "",
+        email: "",
+        phone: "",
+        company: "",
+        package: packageName || "",
+        message: "",
+      })
+    } catch {
+      setStatus("error")
+    }
   }
 
   return (
@@ -138,12 +148,18 @@ export function QuoteFormDialog({ packageName, variant = "default", className, c
             />
           </div>
 
+          {status === "success" && (
+            <p className="text-sm text-green-500 font-medium">Заявка отправлена! Мы свяжемся с вами в ближайшее время.</p>
+          )}
+          {status === "error" && (
+            <p className="text-sm text-red-500 font-medium">Ошибка отправки. Попробуйте ещё раз.</p>
+          )}
           <div className="flex gap-3 pt-4">
             <Button type="button" variant="outline" onClick={() => setOpen(false)} className="flex-1">
               Отмена
             </Button>
-            <Button type="submit" className="flex-1">
-              Отправить заявку
+            <Button type="submit" className="flex-1" disabled={status === "loading"}>
+              {status === "loading" ? "Отправляем..." : "Отправить заявку"}
             </Button>
           </div>
         </form>
