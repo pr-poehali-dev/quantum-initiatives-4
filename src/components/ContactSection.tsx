@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { Mail, Phone, MapPin, Send } from "lucide-react"
+import { Mail, Phone, MapPin, Send, MessageCircle } from "lucide-react"
 
 export function ContactSection() {
   const [formData, setFormData] = useState({
@@ -131,7 +131,7 @@ export function ContactSection() {
                   </div>
                   <div>
                     <h3 className="font-semibold mb-1">E-mail</h3>
-                    <p className="text-sm text-muted-foreground">hello@example.com</p>
+                    <p className="text-sm text-muted-foreground">dlinkd2023@gmail.com</p>
                   </div>
                 </div>
               </CardContent>
@@ -148,6 +148,20 @@ export function ContactSection() {
                     <p className="text-sm text-muted-foreground">+7 978 134-88-87</p>
                   </div>
                 </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-none shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 group">
+              <CardContent className="p-6">
+                <a href="https://t.me/dlinkd2023" target="_blank" rel="noopener noreferrer" className="flex items-start gap-4">
+                  <div className="p-3 rounded-lg bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-all duration-300 group-hover:scale-110">
+                    <MessageCircle className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold mb-1">Telegram</h3>
+                    <p className="text-sm text-muted-foreground">@dlinkd2023</p>
+                  </div>
+                </a>
               </CardContent>
             </Card>
 
