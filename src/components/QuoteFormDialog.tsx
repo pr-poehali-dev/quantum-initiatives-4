@@ -57,9 +57,9 @@ export function QuoteFormDialog({ packageName, variant = "default", className, c
       </DialogTrigger>
       <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Запросить расчет</DialogTitle>
+          <DialogTitle>Оставить заявку</DialogTitle>
           <DialogDescription>
-            Заполните форму, и мы свяжемся с вами в ближайшее время для бесплатной консультации.
+            Заполните форму, и мы свяжемся с вами для бесплатной консультации по прошивке.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 mt-4">
@@ -109,7 +109,7 @@ export function QuoteFormDialog({ packageName, variant = "default", className, c
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="package">Тариф *</Label>
+            <Label htmlFor="package">Услуга *</Label>
             <Select
               value={formData.package}
               onValueChange={(value) => setFormData({ ...formData, package: value })}
@@ -118,9 +118,9 @@ export function QuoteFormDialog({ packageName, variant = "default", className, c
                 <SelectValue placeholder="Выберите тариф" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="Базовый">Базовый</SelectItem>
-                <SelectItem value="Про">Про</SelectItem>
-                <SelectItem value="Индивидуальный">Индивидуальный</SelectItem>
+                <SelectItem value="Готовая прошивка">Готовая прошивка</SelectItem>
+                <SelectItem value="Редактирование ЭБУ">Редактирование ЭБУ</SelectItem>
+                <SelectItem value="Помощь в прошивке">Помощь в прошивке</SelectItem>
                 <SelectItem value="Еще не определился">Еще не определился</SelectItem>
               </SelectContent>
             </Select>
@@ -133,7 +133,7 @@ export function QuoteFormDialog({ packageName, variant = "default", className, c
               required
               value={formData.message}
               onChange={(e) => setFormData({ ...formData, message: e.target.value })}
-              placeholder="Расскажите о проекте, пожеланиях и сроках..."
+              placeholder="Укажите марку, модель, двигатель и что хотите сделать..."
               rows={4}
             />
           </div>

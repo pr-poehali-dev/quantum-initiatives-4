@@ -4,39 +4,39 @@ import { QuoteFormDialog } from "@/components/QuoteFormDialog"
 
 const pricingTiers = [
   {
-    name: "Базовый",
-    price: "99 900",
+    name: "Готовая прошивка",
+    price: "2 500",
     features: [
-      "До 5 страниц",
-      "Адаптивный дизайн",
-      "Базовая SEO-оптимизация",
-      "Форма обратной связи",
-      "1 месяц поддержки",
+      "Файл прошивки для вашей модели",
+      "Stage 1 / Stage 2 / Эконом",
+      "Инструкция по установке",
+      "Поддержка 7 дней",
+      "BIN / HEX / ORI форматы",
     ],
     highlighted: false,
   },
   {
-    name: "Про",
-    price: "249 900",
+    name: "Редактирование ЭБУ",
+    price: "5 000",
     features: [
-      "До 15 страниц",
-      "Премиум-дизайн",
-      "Расширенная SEO-оптимизация",
-      "Интеграция CMS",
-      "Функционал e-commerce",
-      "3 месяца поддержки",
+      "Индивидуальная калибровка",
+      "Оптимизация под ваш двигатель",
+      "DPF / EGR / Adblue Off",
+      "Поддержка 30 дней",
+      "Гарантия результата",
+      "2 правки включены",
     ],
     highlighted: true,
   },
   {
-    name: "Индивидуальный",
+    name: "Помощь в прошивке",
     price: "По запросу",
     features: [
-      "Неограниченно страниц",
-      "Кастомный функционал",
-      "API-интеграции",
-      "Персональный менеджер",
-      "6 месяцев поддержки",
+      "Онлайн-сопровождение",
+      "Консультация по оборудованию",
+      "Пошаговые инструкции",
+      "Диагностика ошибок",
+      "Поддержка до завершения",
     ],
     highlighted: false,
   },
@@ -60,10 +60,10 @@ export function PricingSection() {
             Прозрачные цены
           </div>
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-balance">
-            Выберите <span className="text-primary">идеальный тариф</span> для вашего проекта
+            Выберите <span className="text-primary">нужную услугу</span> для вашего автомобиля
           </h2>
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-            От стартапов до крупного бизнеса — у нас есть подходящее решение
+            От готовых прошивок до полного сопровождения — найдём решение под любую задачу
           </p>
         </div>
 
@@ -121,8 +121,8 @@ export function PricingSection() {
 
         <div className="mt-12 text-center">
           <p className="text-sm text-muted-foreground">
-            Все тарифы включают <span className="text-primary font-semibold">бесплатную настройку хостинга</span> и{" "}
-            <span className="text-primary font-semibold">SSL-сертификат</span>
+            Все услуги включают <span className="text-primary font-semibold">консультацию перед началом работы</span> и{" "}
+            <span className="text-primary font-semibold">поддержку после прошивки</span>
           </p>
         </div>
       </div>
