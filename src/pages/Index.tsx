@@ -1,14 +1,27 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import { Navbar } from "@/components/Navbar"
+import { HeroSection } from "@/components/HeroSection"
+import { ServicesSection } from "@/components/ServicesSection"
+import { AboutSection } from "@/components/AboutSection"
+import { ProcessSection } from "@/components/ProcessSection"
+import { TestimonialsSection } from "@/components/TestimonialsSection"
+import { PortfolioSection } from "@/components/PortfolioSection"
+import { PricingSection } from "@/components/PricingSection"
+import { ContactSection } from "@/components/ContactSection"
+import { Footer } from "@/components/Footer"
 
-const Index = () => {
+export default function Index() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4 color-black text-black">Добро пожаловать!</h1>
-        <p className="text-xl text-gray-600">тут будет отображаться ваш проект</p>
-      </div>
-    </div>
-  );
-};
-
-export default Index;
+    <main className="min-h-screen">
+      <Navbar />
+      <HeroSection />
+      <ServicesSection />
+      <AboutSection />
+      <ProcessSection />
+      <TestimonialsSection />
+      <PortfolioSection />
+      <PricingSection />
+      <ContactSection />
+      <Footer />
+    </main>
+  )
+}
