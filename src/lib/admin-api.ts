@@ -70,4 +70,6 @@ export const adminApi = {
     call('admin_delete_order', { order_id: orderId }),
   setAmount: (orderId: number, amount: number, title?: string) =>
     call('admin_set_amount', { order_id: orderId, amount, title }),
+  deleteFile: (fileId: number) =>
+    call('admin_delete_file', { file_id: fileId }),
 };

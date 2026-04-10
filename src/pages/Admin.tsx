@@ -10,6 +10,124 @@ import AdminLogin from '@/pages/admin/AdminLogin';
 import { CreateOrderDialog, UploadFirmwareDialog } from '@/pages/admin/AdminDialogs';
 import AdminOrderCard, { formatDate, formatSize } from '@/pages/admin/AdminOrderCard';
 
+function FilesTab({ files, users, onDeleted }: {
+  files: AdminFile[];
+  users: AdminUser[];
+  onDeleted: () => void;
+}) {
+  const { toast } = useToast();
+  const [openUsers, setOpenUsers] = useState<Record<number, boolean>>({});
+  const [openDates, setOpenDates] = useState<Record<string, boolean>>({});
+
+  const toggleUser = useCallback((id: number) => setOpenUsers(p => ({ ...p, [id]: !p[id] })), []);
+  const toggleDate = useCallback((key: string) => setOpenDates(p => ({ ...p, [key]: !p[key] })), []);
+
+  const allFiles = [...files].sort((a, b) => new Date(b.uploaded_at).getTime() - new Date(a.uploaded_at).getTime());
+
+  if (allFiles.length === 0) {
+    return <p className="text-muted-foreground text-sm text-center py-8">Файлов нет</p>;
+  }
+
+  // Группируем: userId → dateStr → files
+  const byUser = allFiles.reduce<Record<number, { user_id: number; name: string; byDate: Record<string, AdminFile[]> }>>((acc, f) => {
+    const owner = users.find(u => u.id === f.user_id);
+    const name = owner?.name || `Клиент #${f.user_id}`;
+    if (!acc[f.user_id]) acc[f.user_id] = { user_id: f.user_id, name, byDate: {} };
+    const date = new Date(f.uploaded_at).toLocaleDateString('ru-RU', { day: '2-digit', month: 'long', year: 'numeric' });
+    if (!acc[f.user_id].byDate[date]) acc[f.user_id].byDate[date] = [];
+    acc[f.user_id].byDate[date].push(f);
+    return acc;
+  }, {});
+
+  async function handleDelete(fileId: number) {
+    if (!confirm('Удалить файл?')) return;
+    try {
+      await adminApi.deleteFile(fileId);
+      toast({ title: 'Файл удалён' });
+      onDeleted();
+    } catch (e: unknown) {
+      toast({ title: 'Ошибка', description: e instanceof Error ? e.message : 'Ошибка', variant: 'destructive' });
+    }
+  }
+
+  return (
+    <div className="space-y-2">
+      {Object.values(byUser).map(({ user_id, name, byDate }) => {
+        const totalFiles = Object.values(byDate).flat().length;
+        const isUserOpen = !!openUsers[user_id];
+        return (
+          <div key={user_id} className="border border-border rounded-lg overflow-hidden">
+            <button
+              className="w-full flex items-center gap-3 px-4 py-3 bg-muted/30 hover:bg-muted/50 transition-colors text-left"
+              onClick={() => toggleUser(user_id)}
+            >
+              <Icon name={isUserOpen ? 'ChevronDown' : 'ChevronRight'} size={16} className="text-muted-foreground flex-shrink-0" />
+              <Icon name="User" size={16} className="text-primary flex-shrink-0" />
+              <span className="font-semibold text-foreground text-sm">{name}</span>
+              <Badge variant="secondary" className="text-xs ml-auto">{totalFiles} файлов</Badge>
+            </button>
+
+            {isUserOpen && (
+              <div className="divide-y divide-border">
+                {Object.entries(byDate).map(([date, dateFiles]) => {
+                  const dateKey = `${user_id}_${date}`;
+                  const isDateOpen = !!openDates[dateKey];
+                  return (
+                    <div key={date}>
+                      <button
+                        className="w-full flex items-center gap-3 px-6 py-2.5 hover:bg-muted/30 transition-colors text-left"
+                        onClick={() => toggleDate(dateKey)}
+                      >
+                        <Icon name={isDateOpen ? 'ChevronDown' : 'ChevronRight'} size={14} className="text-muted-foreground flex-shrink-0" />
+                        <Icon name="CalendarDays" size={14} className="text-muted-foreground flex-shrink-0" />
+                        <span className="text-sm text-foreground">{date}</span>
+                        <Badge variant="outline" className="text-xs ml-auto">{dateFiles.length}</Badge>
+                      </button>
+
+                      {isDateOpen && (
+                        <div className="px-6 pb-3 pt-1 space-y-2 bg-background/50">
+                          {dateFiles.map(f => (
+                            <div key={f.id} className="flex items-center justify-between p-3 rounded-lg border border-border gap-3">
+                              <div className="min-w-0 flex-1 flex items-center gap-3">
+                                <Icon name={f.file_type === 'admin_upload' ? 'FileCheck' : 'File'} size={18}
+                                  className={f.file_type === 'admin_upload' ? 'text-green-500 flex-shrink-0' : 'text-muted-foreground flex-shrink-0'} />
+                                <div className="min-w-0">
+                                  <p className="text-sm font-medium text-foreground truncate">{f.file_name}</p>
+                                  {f.car_info && <p className="text-xs text-primary font-medium truncate">🚗 {f.car_info}</p>}
+                                  {f.comment && <p className="text-xs text-muted-foreground truncate">💬 {f.comment}</p>}
+                                  <p className="text-xs text-muted-foreground">
+                                    {f.file_type === 'admin_upload' ? 'Отправлен клиенту' : 'От клиента'} · {formatSize(f.file_size)} · {formatDate(f.uploaded_at)}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2 flex-shrink-0">
+                                <a href={f.file_url} download={f.file_name} target="_blank" rel="noreferrer">
+                                  <Button size="sm" variant="outline" className="h-7 text-xs">
+                                    <Icon name="Download" size={13} className="mr-1" />Скачать
+                                  </Button>
+                                </a>
+                                <Button size="sm" variant="ghost"
+                                  className="text-destructive hover:bg-destructive/10 h-7 w-7 p-0"
+                                  onClick={() => handleDelete(f.id)}>
+                                  <Icon name="Trash2" size={13} />
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function ArchiveTab({ orders, files, onDelete, onUploaded }: {
   orders: AdminOrder[];
   files: AdminFile[];
@@ -264,44 +382,7 @@ export default function Admin() {
 
           {/* FILES */}
           <TabsContent value="files">
-            <Card className="bg-card border-border">
-              <CardContent className="pt-4">
-                {clientFiles.length === 0 ? (
-                  <p className="text-muted-foreground text-sm text-center py-8">Файлов нет</p>
-                ) : (
-                  <div className="space-y-2">
-                    {clientFiles.map(f => {
-                      const owner = users.find(u => u.id === f.user_id);
-                      return (
-                        <div key={f.id} className="flex items-center justify-between p-3 rounded-lg border border-border gap-3">
-                          <div className="min-w-0 flex-1 flex items-center gap-3">
-                            <Icon name="File" size={18} className="text-muted-foreground flex-shrink-0" />
-                            <div className="min-w-0">
-                              <p className="text-sm font-medium text-foreground truncate">{f.file_name}</p>
-                              {f.car_info && (
-                                <p className="text-xs text-primary font-medium truncate">🚗 {f.car_info}</p>
-                              )}
-                              {f.comment && (
-                                <p className="text-xs text-muted-foreground truncate">💬 {f.comment}</p>
-                              )}
-                              <p className="text-xs text-muted-foreground">
-                                {owner?.name || `ID ${f.user_id}`} · {formatSize(f.file_size)} · {formatDate(f.uploaded_at)}
-                              </p>
-                            </div>
-                          </div>
-                          <a href={f.file_url} download={f.file_name} target="_blank" rel="noreferrer">
-                            <Button size="sm" variant="outline">
-                              <Icon name="Download" size={14} className="mr-1" />
-                              Скачать
-                            </Button>
-                          </a>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+            <FilesTab files={files} users={users} onDeleted={loadAll} />
           </TabsContent>
         </Tabs>
       </main>

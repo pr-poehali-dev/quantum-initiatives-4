@@ -629,4 +629,28 @@ def handler(event: dict, context) -> dict:
         conn.close()
         return ok({'ok': True})
 
+    if action == 'admin_delete_file':
+        if not check_admin(body):
+            return err(403, 'Доступ запрещён')
+        file_id = body.get('file_id')
+        if not file_id:
+            return err(400, 'file_id обязателен')
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute(f"SELECT s3_key FROM {SCHEMA}.firmware_files WHERE id = %s", (file_id,))
+        row = cur.fetchone()
+        if not row:
+            conn.close()
+            return err(404, 'Файл не найден')
+        s3_key = row[0]
+        try:
+            s3 = get_s3()
+            s3.delete_object(Bucket='files', Key=s3_key)
+        except Exception:
+            pass
+        cur.execute(f"DELETE FROM {SCHEMA}.firmware_files WHERE id = %s", (file_id,))
+        conn.commit()
+        conn.close()
+        return ok({'ok': True})
+
     return err(400, f'Неизвестное действие: {action}')
