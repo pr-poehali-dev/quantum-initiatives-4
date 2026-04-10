@@ -38,8 +38,7 @@ def handler(event: dict, context) -> dict:
         }
 
     file_bytes = base64.b64decode(file_data)
-    ext = file_name.rsplit('.', 1)[-1] if '.' in file_name else 'bin'
-    key = f"firmware/{uuid.uuid4().hex}.{ext}"
+    key = f"firmware/{uuid.uuid4().hex}/{file_name}"
 
     s3 = boto3.client(
         's3',
@@ -47,7 +46,13 @@ def handler(event: dict, context) -> dict:
         aws_access_key_id=os.environ['AWS_ACCESS_KEY_ID'],
         aws_secret_access_key=os.environ['AWS_SECRET_ACCESS_KEY']
     )
-    s3.put_object(Bucket='files', Key=key, Body=file_bytes, ContentType='application/octet-stream')
+    s3.put_object(
+        Bucket='files',
+        Key=key,
+        Body=file_bytes,
+        ContentType='application/octet-stream',
+        ContentDisposition=f'attachment; filename="{file_name}"'
+    )
     cdn_url = f"https://cdn.poehali.dev/projects/{os.environ['AWS_ACCESS_KEY_ID']}/bucket/{key}"
 
     text = (
