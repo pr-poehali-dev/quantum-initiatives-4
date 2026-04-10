@@ -64,4 +64,6 @@ export const adminApi = {
     call('admin_create_order', { user_id: userId, amount, title }),
   uploadFirmware: (userId: number, fileData: string, fileName: string, orderId?: number) =>
     call('admin_upload_firmware', { user_id: userId, file_data: fileData, file_name: fileName, order_id: orderId }),
+  deleteOrder: (orderId: number) =>
+    call('admin_delete_order', { order_id: orderId }),
 };

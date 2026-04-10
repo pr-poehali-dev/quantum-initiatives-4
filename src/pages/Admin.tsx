@@ -329,7 +329,26 @@ export default function Admin() {
                             {o.user.name} {o.user.email ? `· ${o.user.email}` : ''} · {formatDate(o.created_at)}
                           </p>
                         </div>
-                        <span className="font-bold text-foreground flex-shrink-0">{o.amount.toLocaleString('ru-RU')} ₽</span>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <span className="font-bold text-foreground">{o.amount.toLocaleString('ru-RU')} ₽</span>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-destructive hover:text-destructive hover:bg-destructive/10 h-7 w-7 p-0"
+                            onClick={async () => {
+                              if (!confirm(`Удалить заказ #${o.id}?`)) return;
+                              try {
+                                await adminApi.deleteOrder(o.id);
+                                toast({ title: 'Заказ удалён' });
+                                loadAll();
+                              } catch (e: unknown) {
+                                toast({ title: 'Ошибка', description: e instanceof Error ? e.message : 'Ошибка', variant: 'destructive' });
+                              }
+                            }}
+                          >
+                            <Icon name="Trash2" size={14} />
+                          </Button>
+                        </div>
                       </div>
                     ))}
                   </div>
