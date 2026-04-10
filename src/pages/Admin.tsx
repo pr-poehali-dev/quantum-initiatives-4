@@ -88,6 +88,7 @@ export default function Admin() {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
             <TabsList>
               <TabsTrigger value="orders">Заказы</TabsTrigger>
+              <TabsTrigger value="archive">Архив</TabsTrigger>
               <TabsTrigger value="users">Клиенты</TabsTrigger>
               <TabsTrigger value="files">Файлы</TabsTrigger>
             </TabsList>
@@ -100,9 +101,10 @@ export default function Admin() {
           {/* ORDERS */}
           <TabsContent value="orders">
             {(() => {
-              const visible = orders.filter(o => !(o.status === 'pending' && o.payment_status === 'pending' && o.amount === 0));
-              const activeOrders = visible.filter(o => o.status !== 'completed' && o.status !== 'cancelled');
-              const archivedOrders = visible.filter(o => o.status === 'completed' || o.status === 'cancelled');
+              const activeOrders = orders.filter(o =>
+                o.status !== 'completed' && o.status !== 'cancelled' &&
+                !(o.status === 'pending' && o.payment_status === 'pending' && o.amount === 0)
+              );
               const renderCard = (o: typeof orders[0]) => (
                 <AdminOrderCard
                   key={o.id}
@@ -118,23 +120,58 @@ export default function Admin() {
                 />
               );
               return (
+                <div className="space-y-3">
+                  {activeOrders.length === 0
+                    ? <p className="text-muted-foreground text-sm text-center py-8">Активных заказов нет</p>
+                    : activeOrders.map(renderCard)
+                  }
+                </div>
+              );
+            })()}
+          </TabsContent>
+
+          {/* ARCHIVE */}
+          <TabsContent value="archive">
+            {(() => {
+              const archivedOrders = orders.filter(o => o.status === 'completed' || o.status === 'cancelled');
+              if (archivedOrders.length === 0) {
+                return <p className="text-muted-foreground text-sm text-center py-8">Архив пуст</p>;
+              }
+              // Группируем по клиентам
+              const byUser = archivedOrders.reduce<Record<number, { user: typeof archivedOrders[0]['user'], orders: typeof archivedOrders }>>((acc, o) => {
+                if (!acc[o.user.id]) acc[o.user.id] = { user: o.user, orders: [] };
+                acc[o.user.id].orders.push(o);
+                return acc;
+              }, {});
+              return (
                 <div className="space-y-6">
-                  <div className="space-y-3">
-                    {activeOrders.length === 0
-                      ? <p className="text-muted-foreground text-sm text-center py-8">Активных заказов нет</p>
-                      : activeOrders.map(renderCard)
-                    }
-                  </div>
-                  {archivedOrders.length > 0 && (
-                    <div className="space-y-3">
-                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-2">
-                        <Icon name="Archive" size={14} />Архив ({archivedOrders.length})
-                      </p>
-                      <div className="space-y-3 opacity-60">
-                        {archivedOrders.map(renderCard)}
+                  {Object.values(byUser).map(({ user, orders: userOrders }) => (
+                    <div key={user.id} className="space-y-3">
+                      <div className="flex items-center gap-2 px-1">
+                        <Icon name="User" size={14} className="text-muted-foreground" />
+                        <span className="text-sm font-semibold text-foreground">{user.name}</span>
+                        {user.phone && <span className="text-xs text-muted-foreground">· {user.phone}</span>}
+                        {user.email && <span className="text-xs text-muted-foreground">· {user.email}</span>}
+                        <Badge variant="secondary" className="text-xs ml-auto">{userOrders.length} заказов</Badge>
+                      </div>
+                      <div className="space-y-3 opacity-70">
+                        {userOrders.map(o => (
+                          <AdminOrderCard
+                            key={o.id}
+                            order={o}
+                            files={files.filter(f => f.user_id === o.user.id && f.file_type === 'client_upload')}
+                            adminFiles={files.filter(f => f.user_id === o.user.id && f.file_type === 'admin_upload')}
+                            onDelete={async () => {
+                              if (!confirm(`Удалить заказ #${o.id}?`)) return;
+                              try { await adminApi.deleteOrder(o.id); toast({ title: 'Заказ удалён' }); loadAll(); }
+                              catch (e: unknown) { toast({ title: 'Ошибка', description: e instanceof Error ? e.message : 'Ошибка', variant: 'destructive' }); }
+                            }}
+                            onUploaded={loadAll}
+                          />
+                        ))}
                       </div>
                     </div>
-                  )}
+                  ))}
                 </div>
               );
             })()}
