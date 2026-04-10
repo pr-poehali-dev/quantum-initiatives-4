@@ -194,16 +194,31 @@ def handler(event: dict, context) -> dict:
         amount = float(body.get('amount', 0))
         title = body.get('title', 'Услуга прошивки ЭБУ')
         return_url = body.get('return_url', 'https://ecuproo.ru/cabinet')
+        existing_order_id = body.get('order_id')
         if amount <= 0:
             return err(400, 'Сумма должна быть больше 0')
         conn = get_db()
         cur = conn.cursor()
-        cur.execute(
-            f"INSERT INTO {SCHEMA}.orders (user_id, title, amount, status) VALUES (%s, %s, %s, 'pending') RETURNING id",
-            (user[0], title, amount)
-        )
-        order_id = cur.fetchone()[0]
-        conn.commit()
+        if existing_order_id:
+            # Используем существующий заказ
+            cur.execute(
+                f"SELECT id, title, amount FROM {SCHEMA}.orders WHERE id = %s AND user_id = %s AND status = 'pending'",
+                (existing_order_id, user[0])
+            )
+            row = cur.fetchone()
+            if not row:
+                conn.close()
+                return err(404, 'Заказ не найден')
+            order_id = row[0]
+            title = row[1]
+            amount = float(row[2])
+        else:
+            cur.execute(
+                f"INSERT INTO {SCHEMA}.orders (user_id, title, amount, status) VALUES (%s, %s, %s, 'pending') RETURNING id",
+                (user[0], title, amount)
+            )
+            order_id = cur.fetchone()[0]
+            conn.commit()
         idem_key = str(uuid.uuid4())
         yk_resp = yk_request('POST', '', {
             'amount': {'value': f'{amount:.2f}', 'currency': 'RUB'},

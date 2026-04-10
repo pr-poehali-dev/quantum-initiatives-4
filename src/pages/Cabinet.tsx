@@ -78,7 +78,7 @@ export default function Cabinet() {
   async function handlePay(orderId: number, amount: number, title: string) {
     setPayLoading(true);
     try {
-      const res = await cabinetApi.createPayment(token, amount, title);
+      const res = await cabinetApi.createPayment(token, amount, title, orderId);
       if (res.confirmation_url) {
         window.location.href = res.confirmation_url;
       }

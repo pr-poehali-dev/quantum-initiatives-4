@@ -78,8 +78,8 @@ export const cabinetApi = {
 
   getOrders: (token: string) => call('get_orders', {}, token),
 
-  createPayment: (token: string, amount: number, title: string) =>
-    call('create_payment', { amount, title, return_url: `${window.location.origin}/cabinet` }, token),
+  createPayment: (token: string, amount: number, title: string, orderId?: number) =>
+    call('create_payment', { amount, title, order_id: orderId, return_url: `${window.location.origin}/cabinet` }, token),
 
   getFirmware: (token: string) => call('get_firmware', {}, token),
 
