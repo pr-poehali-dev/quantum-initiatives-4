@@ -1,0 +1,49 @@
+{
+  "tests": [
+    {
+      "name": "Register new user",
+      "method": "POST",
+      "path": "/",
+      "body": {"action": "register", "email": "testcabinet@ecuproo.ru", "password": "Test1234", "name": "Тест Кабинет"},
+      "expectedStatus": 200,
+      "expectedBody": {"token": "string"},
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Login user",
+      "method": "POST",
+      "path": "/",
+      "body": {"action": "login", "email": "testcabinet@ecuproo.ru", "password": "Test1234"},
+      "expectedStatus": 200,
+      "expectedBody": {"token": "string"},
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Get orders unauthorized",
+      "method": "POST",
+      "path": "/",
+      "body": {"action": "get_orders"},
+      "expectedStatus": 401,
+      "expectedBody": {"error": "string"},
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Get firmware list unauthorized",
+      "method": "POST",
+      "path": "/",
+      "body": {"action": "get_firmware"},
+      "expectedStatus": 401,
+      "expectedBody": {"error": "string"},
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Payment webhook",
+      "method": "POST",
+      "path": "/",
+      "body": {"action": "payment_webhook", "event": "payment.succeeded", "object": {"id": "test123", "status": "succeeded", "metadata": {}}},
+      "expectedStatus": 200,
+      "expectedBody": {"ok": true},
+      "bodyMatcher": "partial"
+    }
+  ]
+}

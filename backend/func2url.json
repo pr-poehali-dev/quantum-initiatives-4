@@ -1,4 +1,5 @@
 {
+  "cabinet": "https://functions.poehali.dev/f3320483-74c7-4679-af0e-b96363856414",
   "upload-firmware": "https://functions.poehali.dev/5925ace6-f425-485d-8a12-90ebd4f4f263",
   "send-telegram": "https://functions.poehali.dev/e70333b9-8e2d-43c5-9236-11a6b373acbc"
 }
