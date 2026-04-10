@@ -13,4 +13,4 @@ Allow: /
 User-agent: *
 Allow: /
 
-Sitemap: https://ecuproo.poehali.dev/sitemap.xml
+Sitemap: https://ecuproo.ru/sitemap.xml
