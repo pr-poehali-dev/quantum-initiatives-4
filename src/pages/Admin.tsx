@@ -398,6 +398,9 @@ export default function Admin() {
                               {f.car_info && (
                                 <p className="text-xs text-primary font-medium truncate">🚗 {f.car_info}</p>
                               )}
+                              {f.comment && (
+                                <p className="text-xs text-muted-foreground truncate">💬 {f.comment}</p>
+                              )}
                               <p className="text-xs text-muted-foreground">
                                 {owner?.name || `ID ${f.user_id}`} · {formatSize(f.file_size)} · {formatDate(f.uploaded_at)}
                               </p>

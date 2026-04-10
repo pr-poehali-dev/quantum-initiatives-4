@@ -53,6 +53,7 @@ export interface AdminFile {
   order_id?: number;
   user_id: number;
   car_info?: string;
+  comment?: string;
 }
 
 export const adminApi = {

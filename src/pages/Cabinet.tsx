@@ -50,6 +50,7 @@ export default function Cabinet() {
   const [carMake, setCarMake] = useState('');
   const [carModel, setCarModel] = useState('');
   const [carYear, setCarYear] = useState('');
+  const [comment, setComment] = useState('');
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -105,10 +106,10 @@ export default function Cabinet() {
       const reader = new FileReader();
       reader.onload = async (ev) => {
         const base64 = (ev.target?.result as string).split(',')[1];
-        await cabinetApi.uploadFirmware(token, base64, pendingFile.name, carInfo || undefined);
+        await cabinetApi.uploadFirmware(token, base64, pendingFile.name, carInfo || undefined, comment || undefined);
         toast({ title: 'Файл загружен', description: `${pendingFile.name} успешно отправлен` });
         setPendingFile(null);
-        setCarMake(''); setCarModel(''); setCarYear('');
+        setCarMake(''); setCarModel(''); setCarYear(''); setComment('');
         await loadData();
       };
       reader.readAsDataURL(pendingFile);
@@ -212,6 +213,16 @@ export default function Cabinet() {
                     <Label>Год выпуска</Label>
                     <Input placeholder="2019" value={carYear} onChange={e => setCarYear(e.target.value)} />
                   </div>
+                  <div>
+                    <Label>Комментарий / описание проблемы</Label>
+                    <textarea
+                      className="w-full mt-1 px-3 py-2 rounded-md border border-input bg-background text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring"
+                      rows={3}
+                      placeholder="Опишите что нужно сделать: чип-тюнинг, отключение DPF, EGR..."
+                      value={comment}
+                      onChange={e => setComment(e.target.value)}
+                    />
+                  </div>
                   {pendingFile && (
                     <p className="text-xs text-muted-foreground">Файл: {pendingFile.name}</p>
                   )}
@@ -221,7 +232,7 @@ export default function Cabinet() {
                     <Icon name="Upload" size={16} className="mr-2" />
                     Отправить
                   </Button>
-                  <Button variant="outline" onClick={() => { setUploadDialog(false); setPendingFile(null); }}>
+                  <Button variant="outline" onClick={() => { setUploadDialog(false); setPendingFile(null); setComment(''); }}>
                     Отмена
                   </Button>
                 </div>
@@ -323,6 +334,9 @@ export default function Cabinet() {
                           <p className="text-sm text-foreground truncate">{f.file_name}</p>
                           {f.car_info && (
                             <p className="text-xs text-primary font-medium truncate">🚗 {f.car_info}</p>
+                          )}
+                          {f.comment && (
+                            <p className="text-xs text-muted-foreground truncate">💬 {f.comment}</p>
                           )}
                           <p className="text-xs text-muted-foreground">{formatDate(f.uploaded_at)} · {formatSize(f.file_size)}</p>
                         </div>
