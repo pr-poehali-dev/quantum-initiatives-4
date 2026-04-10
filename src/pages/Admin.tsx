@@ -217,6 +217,121 @@ function UploadFirmwareDialog({ users, onUploaded }: { users: AdminUser[]; onUpl
   );
 }
 
+// ─── Order Card ──────────────────────────────────────────
+function OrderCard({ order, files, onDelete, onUploaded }: {
+  order: AdminOrder;
+  files: AdminFile[];
+  onDelete: () => void;
+  onUploaded: () => void;
+}) {
+  const { toast } = useToast();
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const isPaid = order.payment_status === 'succeeded';
+
+  async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = ev => resolve((ev.target?.result as string).split(',')[1]);
+        reader.onerror = () => reject(new Error('Ошибка чтения файла'));
+        reader.readAsDataURL(file);
+      });
+      await adminApi.uploadFirmware(order.user.id, base64, file.name, order.id);
+      toast({ title: 'Прошивка отправлена клиенту', description: 'Клиент получил уведомление в Telegram' });
+      onUploaded();
+    } catch (err: unknown) {
+      toast({ title: 'Ошибка', description: err instanceof Error ? err.message : 'Ошибка', variant: 'destructive' });
+    } finally {
+      setUploading(false);
+      e.target.value = '';
+    }
+  }
+
+  return (
+    <Card className={`border-2 ${isPaid ? 'border-green-500/50' : 'border-border'} bg-card`}>
+      <CardContent className="pt-4 pb-4 space-y-3">
+
+        {/* Шапка */}
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-bold text-foreground">#{order.id}</span>
+            <span className="text-sm text-foreground">{order.title}</span>
+            {isPaid
+              ? <Badge className="bg-green-500 text-white text-xs">✅ Оплачено</Badge>
+              : <Badge variant="secondary" className="text-xs">⏳ Не оплачено</Badge>
+            }
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <span className="font-bold text-foreground">{order.amount.toLocaleString('ru-RU')} ₽</span>
+            <Button size="sm" variant="ghost"
+              className="text-destructive hover:bg-destructive/10 h-7 w-7 p-0"
+              onClick={onDelete}>
+              <Icon name="Trash2" size={14} />
+            </Button>
+          </div>
+        </div>
+
+        {/* Клиент */}
+        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/40">
+          <Icon name="User" size={14} className="text-primary flex-shrink-0" />
+          <span className="text-sm font-medium text-foreground">{order.user.name}</span>
+          {order.user.phone && <span className="text-xs text-muted-foreground">· {order.user.phone}</span>}
+          {order.user.email && <span className="text-xs text-muted-foreground">· {order.user.email}</span>}
+          <span className="text-xs text-muted-foreground ml-auto">{formatDate(order.created_at)}</span>
+        </div>
+
+        {/* Файлы от клиента */}
+        {files.length > 0 ? (
+          <div className="space-y-2">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Файл от клиента</p>
+            {files.map(f => (
+              <div key={f.id} className="flex items-start gap-2 p-2 rounded-lg border border-border bg-background">
+                <Icon name="FileCode2" size={16} className="text-primary flex-shrink-0 mt-0.5" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-foreground truncate">{f.file_name}
+                    <span className="text-xs text-muted-foreground font-normal ml-1">{formatSize(f.file_size)}</span>
+                  </p>
+                  {f.car_info && <p className="text-xs text-foreground">🚗 {f.car_info}</p>}
+                  {f.comment && <p className="text-xs text-muted-foreground">💬 {f.comment}</p>}
+                </div>
+                <a href={f.file_url} download={f.file_name} target="_blank" rel="noreferrer">
+                  <Button size="sm" variant="outline" className="h-7 text-xs flex-shrink-0">
+                    <Icon name="Download" size={12} className="mr-1" />Скачать
+                  </Button>
+                </a>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-xs text-muted-foreground italic px-1">Клиент ещё не загрузил файл прошивки</p>
+        )}
+
+        {/* Кнопка отправки готовой прошивки — только если оплачено */}
+        {isPaid && (
+          <div className="pt-1 border-t border-border">
+            <input ref={fileRef} type="file" className="hidden" onChange={handleUpload} />
+            <Button
+              className="w-full"
+              onClick={() => fileRef.current?.click()}
+              disabled={uploading}
+            >
+              {uploading
+                ? <><Icon name="Loader2" size={16} className="animate-spin mr-2" />Загрузка...</>
+                : <><Icon name="Upload" size={16} className="mr-2" />Отправить готовую прошивку клиенту</>
+              }
+            </Button>
+          </div>
+        )}
+
+      </CardContent>
+    </Card>
+  );
+}
+
 // ─── Main Admin Panel ────────────────────────────────────
 export default function Admin() {
   const [authed, setAuthed] = useState(!!getAdminKey());
@@ -308,96 +423,21 @@ export default function Admin() {
           {/* ORDERS */}
           <TabsContent value="orders">
             <div className="space-y-3">
-                {orders.length === 0 ? (
-                  <p className="text-muted-foreground text-sm text-center py-8">Заказов нет</p>
-                ) : (
-                  orders.map(o => {
-                    const allClientFiles = files.filter(f => f.user_id === o.user.id && f.file_type === 'client_upload');
-                    const isPaid = o.payment_status === 'succeeded';
-                    return (
-                      <Card key={o.id} className={`border ${isPaid ? 'border-green-500/40 bg-green-500/5' : 'border-border bg-card'}`}>
-                        <CardContent className="pt-4 pb-4 space-y-3">
-                          {/* Шапка заказа */}
-                          <div className="flex items-start justify-between gap-3">
-                            <div>
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <span className="font-bold text-foreground">#{o.id}</span>
-                                <span className="text-sm text-foreground">{o.title}</span>
-                                <Badge variant={isPaid ? 'default' : 'secondary'} className="text-xs">
-                                  {isPaid ? '✅ Оплачен' : statusLabel[o.status] || o.status}
-                                </Badge>
-                              </div>
-                              <p className="text-xs text-muted-foreground mt-1">{formatDate(o.created_at)}</p>
-                            </div>
-                            <div className="flex items-center gap-2 flex-shrink-0">
-                              <span className="font-bold text-lg text-foreground">{o.amount.toLocaleString('ru-RU')} ₽</span>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="text-destructive hover:text-destructive hover:bg-destructive/10 h-7 w-7 p-0"
-                                onClick={async () => {
-                                  if (!confirm(`Удалить заказ #${o.id}?`)) return;
-                                  try {
-                                    await adminApi.deleteOrder(o.id);
-                                    toast({ title: 'Заказ удалён' });
-                                    loadAll();
-                                  } catch (e: unknown) {
-                                    toast({ title: 'Ошибка', description: e instanceof Error ? e.message : 'Ошибка', variant: 'destructive' });
-                                  }
-                                }}
-                              >
-                                <Icon name="Trash2" size={14} />
-                              </Button>
-                            </div>
-                          </div>
-
-                          {/* Клиент */}
-                          <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/50">
-                            <Icon name="User" size={15} className="text-primary flex-shrink-0" />
-                            <div className="text-sm">
-                              <span className="font-medium text-foreground">{o.user.name}</span>
-                              {o.user.email && <span className="text-muted-foreground"> · {o.user.email}</span>}
-                              {o.user.phone && <span className="text-muted-foreground"> · {o.user.phone}</span>}
-                            </div>
-                          </div>
-
-                          {/* Файлы прошивок от клиента */}
-                          {allClientFiles.length > 0 && (
-                            <div className="space-y-1.5">
-                              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Файлы от клиента</p>
-                              {allClientFiles.map(f => (
-                                <div key={f.id} className="flex items-start gap-2 p-2 rounded-lg border border-border bg-background">
-                                  <Icon name="FileCode" size={16} className="text-primary flex-shrink-0 mt-0.5" />
-                                  <div className="min-w-0 flex-1">
-                                    <div className="flex items-center gap-2 flex-wrap">
-                                      <a href={f.file_url} download={f.file_name} target="_blank" rel="noreferrer"
-                                        className="text-sm font-medium text-primary hover:underline truncate">
-                                        {f.file_name}
-                                      </a>
-                                      <span className="text-xs text-muted-foreground">{formatSize(f.file_size)}</span>
-                                    </div>
-                                    {f.car_info && <p className="text-xs text-foreground mt-0.5">🚗 {f.car_info}</p>}
-                                    {f.comment && <p className="text-xs text-muted-foreground mt-0.5">💬 {f.comment}</p>}
-                                    <p className="text-xs text-muted-foreground mt-0.5">{formatDate(f.uploaded_at)}</p>
-                                  </div>
-                                  <a href={f.file_url} download={f.file_name} target="_blank" rel="noreferrer">
-                                    <Button size="sm" variant="outline" className="h-7 text-xs flex-shrink-0">
-                                      <Icon name="Download" size={12} className="mr-1" />Скачать
-                                    </Button>
-                                  </a>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-
-                          {allClientFiles.length === 0 && (
-                            <p className="text-xs text-muted-foreground italic">Клиент ещё не загрузил файл прошивки</p>
-                          )}
-                        </CardContent>
-                      </Card>
-                    );
-                  })
-                )}
+              {orders.length === 0 ? (
+                <p className="text-muted-foreground text-sm text-center py-8">Заказов нет</p>
+              ) : orders.map(o => (
+                <OrderCard
+                  key={o.id}
+                  order={o}
+                  files={files.filter(f => f.user_id === o.user.id && f.file_type === 'client_upload')}
+                  onDelete={async () => {
+                    if (!confirm(`Удалить заказ #${o.id}?`)) return;
+                    try { await adminApi.deleteOrder(o.id); toast({ title: 'Заказ удалён' }); loadAll(); }
+                    catch (e: unknown) { toast({ title: 'Ошибка', description: e instanceof Error ? e.message : 'Ошибка', variant: 'destructive' }); }
+                  }}
+                  onUploaded={loadAll}
+                />
+              ))}
             </div>
           </TabsContent>
 
