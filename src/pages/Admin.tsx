@@ -218,9 +218,10 @@ function UploadFirmwareDialog({ users, onUploaded }: { users: AdminUser[]; onUpl
 }
 
 // ─── Order Card ──────────────────────────────────────────
-function OrderCard({ order, files, onDelete, onUploaded }: {
+function OrderCard({ order, files, adminFiles, onDelete, onUploaded }: {
   order: AdminOrder;
   files: AdminFile[];
+  adminFiles: AdminFile[];
   onDelete: () => void;
   onUploaded: () => void;
 }) {
@@ -317,6 +318,31 @@ function OrderCard({ order, files, onDelete, onUploaded }: {
           <p className="text-xs text-muted-foreground italic px-1">Клиент ещё не загрузил файл прошивки</p>
         )}
 
+        {/* Файлы отправленные клиенту */}
+        {adminFiles.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+              Отправлено клиенту ({adminFiles.length})
+            </p>
+            {[...adminFiles].sort((a, b) => new Date(b.uploaded_at).getTime() - new Date(a.uploaded_at).getTime()).map((f, idx) => (
+              <div key={f.id} className="flex items-center gap-2 p-2 rounded-lg border border-green-500/40 bg-green-500/5">
+                <Icon name="FileCheck" size={16} className="text-green-500 flex-shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-foreground truncate">{f.file_name}
+                    <span className="text-xs text-muted-foreground font-normal ml-1">{formatSize(f.file_size)}</span>
+                  </p>
+                  <p className="text-xs text-muted-foreground">🕐 {formatDate(f.uploaded_at)}</p>
+                </div>
+                <a href={f.file_url} download={f.file_name} target="_blank" rel="noreferrer">
+                  <Button size="sm" variant="outline" className="h-7 text-xs flex-shrink-0">
+                    <Icon name="Download" size={12} className="mr-1" />Скачать
+                  </Button>
+                </a>
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* Кнопка отправки готовой прошивки — только если оплачено */}
         {isPaid && (
           <div className="pt-1 border-t border-border">
@@ -328,7 +354,9 @@ function OrderCard({ order, files, onDelete, onUploaded }: {
             >
               {uploading
                 ? <><Icon name="Loader2" size={16} className="animate-spin mr-2" />Загрузка...</>
-                : <><Icon name="Upload" size={16} className="mr-2" />Отправить готовую прошивку клиенту</>
+                : <><Icon name="Upload" size={16} className="mr-2" />
+                  {adminFiles.length > 0 ? 'Отправить новую версию прошивки' : 'Отправить готовую прошивку клиенту'}
+                </>
               }
             </Button>
           </div>
@@ -437,6 +465,7 @@ export default function Admin() {
                   key={o.id}
                   order={o}
                   files={files.filter(f => f.user_id === o.user.id && f.file_type === 'client_upload')}
+                  adminFiles={files.filter(f => f.user_id === o.user.id && f.file_type === 'admin_upload')}
                   onDelete={async () => {
                     if (!confirm(`Удалить заказ #${o.id}?`)) return;
                     try { await adminApi.deleteOrder(o.id); toast({ title: 'Заказ удалён' }); loadAll(); }
