@@ -228,8 +228,28 @@ function OrderCard({ order, files, adminFiles, onDelete, onUploaded }: {
   const { toast } = useToast();
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
+  const [invoiceAmount, setInvoiceAmount] = useState('');
+  const [invoiceTitle, setInvoiceTitle] = useState(order.title || 'Услуга прошивки ЭБУ');
+  const [sendingInvoice, setSendingInvoice] = useState(false);
+  const [showInvoice, setShowInvoice] = useState(false);
   const isPaid = order.payment_status === 'succeeded';
   const isNew = order.status === 'new';
+
+  async function handleSendInvoice() {
+    const amount = parseFloat(invoiceAmount);
+    if (!amount || amount <= 0) return;
+    setSendingInvoice(true);
+    try {
+      await adminApi.setAmount(order.id, amount, invoiceTitle);
+      toast({ title: 'Счёт выставлен', description: 'Клиент получил уведомление в Telegram' });
+      setShowInvoice(false);
+      onUploaded();
+    } catch (err: unknown) {
+      toast({ title: 'Ошибка', description: err instanceof Error ? err.message : 'Ошибка', variant: 'destructive' });
+    } finally {
+      setSendingInvoice(false);
+    }
+  }
 
   async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -351,6 +371,45 @@ function OrderCard({ order, files, adminFiles, onDelete, onUploaded }: {
                 </a>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* Выставить счёт — только для новых заказов */}
+        {isNew && (
+          <div className="pt-1 border-t border-border space-y-2">
+            {!showInvoice ? (
+              <Button className="w-full" variant="default" onClick={() => setShowInvoice(true)}>
+                <Icon name="Receipt" size={16} className="mr-2" />Выставить счёт клиенту
+              </Button>
+            ) : (
+              <div className="space-y-2">
+                <Input
+                  placeholder="Название услуги"
+                  value={invoiceTitle}
+                  onChange={e => setInvoiceTitle(e.target.value)}
+                />
+                <div className="flex gap-2">
+                  <Input
+                    type="number"
+                    placeholder="Сумма, ₽"
+                    value={invoiceAmount}
+                    onChange={e => setInvoiceAmount(e.target.value)}
+                    className="flex-1"
+                    min={1}
+                    autoFocus
+                  />
+                  <Button onClick={handleSendInvoice} disabled={sendingInvoice || !invoiceAmount}>
+                    {sendingInvoice
+                      ? <Icon name="Loader2" size={16} className="animate-spin" />
+                      : <><Icon name="Send" size={16} className="mr-1" />Отправить</>
+                    }
+                  </Button>
+                  <Button variant="ghost" onClick={() => setShowInvoice(false)}>
+                    <Icon name="X" size={16} />
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 

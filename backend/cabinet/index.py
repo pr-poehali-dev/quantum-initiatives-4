@@ -473,7 +473,6 @@ def handler(event: dict, context) -> dict:
         order_id = cur.fetchone()[0]
         conn.commit()
 
-        # Уведомить клиента в Telegram — пусть идёт в кабинет и оплачивает сам
         try:
             import urllib.parse
             cur.execute(f"SELECT telegram_id, name FROM {SCHEMA}.users WHERE id = %s", (target_user_id,))
@@ -502,6 +501,62 @@ def handler(event: dict, context) -> dict:
 
         conn.close()
         return ok({'order_id': order_id})
+
+    if action == 'admin_set_amount':
+        """Выставить счёт клиенту по существующему new-заказу"""
+        if not check_admin(body):
+            return err(403, 'Доступ запрещён')
+        order_id = body.get('order_id')
+        amount = float(body.get('amount', 0))
+        title = body.get('title', '')
+        if not order_id or amount <= 0:
+            return err(400, 'order_id и amount обязательны')
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute(
+            f"SELECT o.id, o.title, o.car_info, u.id, u.telegram_id, u.name FROM {SCHEMA}.orders o JOIN {SCHEMA}.users u ON u.id = o.user_id WHERE o.id = %s AND o.status = 'new'",
+            (order_id,)
+        )
+        row = cur.fetchone()
+        if not row:
+            conn.close()
+            return err(404, 'Заказ не найден или уже выставлен счёт')
+        new_title = title or row[1]
+        cur.execute(
+            f"UPDATE {SCHEMA}.orders SET amount = %s, title = %s, status = 'pending' WHERE id = %s",
+            (amount, new_title, order_id)
+        )
+        conn.commit()
+
+        try:
+            import urllib.parse
+            telegram_id = row[4]
+            if telegram_id:
+                bot_token = os.environ.get('TELEGRAM_BOT_TOKEN', '')
+                car_info = row[2] or ''
+                text = (
+                    f"💳 *Для вас выставлен счёт*\n\n"
+                    f"📋 *Услуга:* {new_title}\n"
+                    + (f"🚗 *Авто:* {car_info}\n" if car_info else '') +
+                    f"💵 *Сумма:* {amount:.0f} ₽\n\n"
+                    f"Войдите в личный кабинет чтобы оплатить:\nhttps://ecuproo.ru/cabinet"
+                )
+                data = urllib.parse.urlencode({
+                    'chat_id': telegram_id,
+                    'text': text,
+                    'parse_mode': 'Markdown'
+                }).encode('utf-8')
+                req = urllib.request.Request(
+                    f"https://api.telegram.org/bot{bot_token}/sendMessage",
+                    data=data, method='POST'
+                )
+                with urllib.request.urlopen(req) as r:
+                    r.read()
+        except Exception:
+            pass
+
+        conn.close()
+        return ok({'ok': True})
 
     if action == 'admin_get_firmware':
         if not check_admin(body):
