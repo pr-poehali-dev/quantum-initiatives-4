@@ -103,16 +103,20 @@ export default function Cabinet() {
     setUploadDialog(false);
     const carInfo = [carMake, carModel, carYear].filter(Boolean).join(' ');
     try {
-      const reader = new FileReader();
-      reader.onload = async (ev) => {
-        const base64 = (ev.target?.result as string).split(',')[1];
-        await cabinetApi.uploadFirmware(token, base64, pendingFile.name, carInfo || undefined, comment || undefined);
-        toast({ title: 'Файл загружен', description: `${pendingFile.name} успешно отправлен` });
-        setPendingFile(null);
-        setCarMake(''); setCarModel(''); setCarYear(''); setComment('');
-        await loadData();
-      };
-      reader.readAsDataURL(pendingFile);
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          const result = ev.target?.result as string;
+          resolve(result.split(',')[1]);
+        };
+        reader.onerror = () => reject(new Error('Не удалось прочитать файл'));
+        reader.readAsDataURL(pendingFile);
+      });
+      await cabinetApi.uploadFirmware(token, base64, pendingFile.name, carInfo || undefined, comment || undefined);
+      toast({ title: 'Файл загружен', description: `${pendingFile.name} успешно отправлен` });
+      setPendingFile(null);
+      setCarMake(''); setCarModel(''); setCarYear(''); setComment('');
+      await loadData();
     } catch (err: unknown) {
       toast({ title: 'Ошибка', description: err instanceof Error ? err.message : 'Ошибка загрузки', variant: 'destructive' });
     } finally {
