@@ -33,7 +33,7 @@ def handler(event: dict, context) -> dict:
         }
 
     text = (
-        f"🔧 *Новая заявка с сайта ECUPro*\n\n"
+        f"🔧 *Новая заявка с сайта ECUProo*\n\n"
         f"👤 *Имя:* {name}\n"
         f"📧 *Email:* {email or '—'}\n"
         f"📱 *Телефон:* {phone or '—'}\n"
