@@ -33,6 +33,7 @@ export default function AdminOrderCard({ order, files, adminFiles, onDelete, onU
   const [showInvoice, setShowInvoice] = useState(false);
   const isPaid = order.payment_status === 'succeeded';
   const isNew = order.status === 'new';
+  const isCompleted = order.status === 'completed';
 
   async function handleSendInvoice() {
     const amount = parseFloat(invoiceAmount);
@@ -73,7 +74,7 @@ export default function AdminOrderCard({ order, files, adminFiles, onDelete, onU
   }
 
   return (
-    <Card className={`border-2 ${isPaid ? 'border-green-500/50' : isNew ? 'border-blue-500/50' : 'border-border'} bg-card`}>
+    <Card className={`border-2 ${isCompleted ? 'border-gray-400/50' : isPaid ? 'border-green-500/50' : isNew ? 'border-blue-500/50' : 'border-border'} bg-card`}>
       <CardContent className="pt-4 pb-4 space-y-3">
 
         {/* Шапка */}
@@ -81,11 +82,13 @@ export default function AdminOrderCard({ order, files, adminFiles, onDelete, onU
           <div className="flex items-center gap-2 flex-wrap">
             <span className="font-bold text-foreground">#{order.id}</span>
             <span className="text-sm text-foreground">{order.title}</span>
-            {isPaid
-              ? <Badge className="bg-green-500 text-white text-xs">✅ Оплачено</Badge>
-              : isNew
-                ? <Badge className="bg-blue-500 text-white text-xs">🆕 Новый заказ</Badge>
-                : <Badge variant="secondary" className="text-xs">⏳ Ожидает оплаты</Badge>
+            {isCompleted
+              ? <Badge className="bg-gray-500 text-white text-xs">✅ Выполнен</Badge>
+              : isPaid
+                ? <Badge className="bg-green-500 text-white text-xs">✅ Оплачено</Badge>
+                : isNew
+                  ? <Badge className="bg-blue-500 text-white text-xs">🆕 Новый заказ</Badge>
+                  : <Badge variant="secondary" className="text-xs">⏳ Ожидает оплаты</Badge>
             }
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
@@ -212,8 +215,8 @@ export default function AdminOrderCard({ order, files, adminFiles, onDelete, onU
           </div>
         )}
 
-        {/* Кнопка отправки готовой прошивки — только если оплачено */}
-        {isPaid && (
+        {/* Кнопка отправки готовой прошивки — только если оплачено и не выполнено */}
+        {isPaid && !isCompleted && (
           <div className="pt-1 border-t border-border">
             <input ref={fileRef} type="file" className="hidden" onChange={handleUpload} />
             <Button
@@ -228,6 +231,13 @@ export default function AdminOrderCard({ order, files, adminFiles, onDelete, onU
                 </>
               }
             </Button>
+          </div>
+        )}
+
+        {/* Заказ закрыт */}
+        {isCompleted && (
+          <div className="pt-1 border-t border-border">
+            <p className="text-xs text-muted-foreground text-center py-1">🔒 Заказ закрыт — прошивка отправлена клиенту</p>
           </div>
         )}
 
