@@ -255,6 +255,35 @@ def handler(event: dict, context) -> dict:
         file_id = cur.fetchone()[0]
         conn.commit()
         conn.close()
+
+        try:
+            bot_token = os.environ.get('TELEGRAM_BOT_TOKEN', '')
+            chat_id = os.environ.get('TELEGRAM_CHAT_ID', '')
+            size_kb = round(len(file_bytes) / 1024, 1)
+            text = (
+                f"📂 *Новый файл прошивки от клиента*\n\n"
+                f"👤 *Клиент:* {user[1]}\n"
+                f"📧 *Email:* {user[2] or '—'}\n"
+                f"📱 *Телефон:* {user[3] or '—'}\n"
+                f"📎 *Файл:* [{file_name}]({file_url})\n"
+                f"💾 *Размер:* {size_kb} КБ\n"
+                f"🆔 *ID клиента:* {user[0]}"
+            )
+            import urllib.parse
+            data = urllib.parse.urlencode({
+                'chat_id': chat_id,
+                'text': text,
+                'parse_mode': 'Markdown'
+            }).encode('utf-8')
+            req = urllib.request.Request(
+                f"https://api.telegram.org/bot{bot_token}/sendMessage",
+                data=data, method='POST'
+            )
+            with urllib.request.urlopen(req) as r:
+                r.read()
+        except Exception:
+            pass
+
         return ok({'file_id': file_id, 'file_url': file_url, 'file_name': file_name})
 
     if action == 'get_firmware':
