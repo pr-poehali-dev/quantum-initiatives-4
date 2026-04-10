@@ -92,6 +92,10 @@ def handler(event: dict, context) -> dict:
     token = (event.get('headers') or {}).get('X-Auth-Token', '')
     user = get_user_by_token(token) if token else None
 
+    # Вебхук от ЮКассы — нет поля action, но есть поле event
+    if not action and body.get('event'):
+        action = 'payment_webhook'
+
     if action == 'register':
         email = body.get('email', '').strip().lower()
         password = body.get('password', '')
