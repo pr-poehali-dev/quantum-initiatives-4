@@ -11,7 +11,8 @@ import { cabinetApi, getToken, getSavedUser, clearSession, type Order, type Firm
 import Icon from '@/components/ui/icon';
 
 const statusLabel: Record<string, string> = {
-  pending: 'Ожидает',
+  new: 'В обработке',
+  pending: 'Ожидает оплаты',
   paid: 'Оплачен',
   completed: 'Выполнен',
   cancelled: 'Отменён',
@@ -278,64 +279,73 @@ export default function Cabinet() {
             )}
 
             {/* Orders */}
-            <Card className="bg-card border-border">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Icon name="ShoppingCart" size={18} className="text-primary" />
-                  Мои заказы
-                  {orders.length > 0 && <Badge variant="secondary" className="ml-auto">{orders.length}</Badge>}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {orders.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-6">Заказов пока нет</p>
-                ) : (
-                  <div className="space-y-3">
-                    {orders.map(order => (
-                      <div key={order.id} className="flex items-center justify-between p-3 rounded-lg border border-border">
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium text-foreground truncate">{order.title}</p>
-                          <p className="text-xs text-muted-foreground">{formatDate(order.created_at)} · #{order.id}</p>
-                          <Badge variant={statusColor[order.status] || 'secondary'} className="mt-1 text-xs">
-                            {statusLabel[order.status] || order.status}
-                          </Badge>
-                        </div>
-                        <div className="flex flex-col items-end gap-2 ml-3 flex-shrink-0">
-                          {order.amount > 0 && <span className="font-bold text-foreground">{order.amount.toLocaleString('ru-RU')} ₽</span>}
-                          {order.payment_status !== 'succeeded' && order.status === 'pending' && (
-                            <Button
-                              size="sm"
-                              onClick={() => handlePay(order.id, order.amount, order.title)}
-                              disabled={payLoading}
-                            >
-                              {payLoading ? <Icon name="Loader2" size={14} className="animate-spin" /> : 'Оплатить'}
-                            </Button>
-                          )}
-                          {order.status === 'new' && (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="text-destructive hover:bg-destructive/10 h-7 w-7 p-0"
-                              onClick={async () => {
-                                if (!confirm('Удалить заказ?')) return;
-                                try {
-                                  await cabinetApi.deleteOrder(token, order.id);
-                                  await loadData();
-                                } catch (e: unknown) {
-                                  toast({ title: 'Ошибка', description: e instanceof Error ? e.message : 'Ошибка', variant: 'destructive' });
-                                }
-                              }}
-                            >
-                              <Icon name="Trash2" size={14} />
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    ))}
+            {(() => {
+              const activeOrders = orders.filter(o => o.status !== 'completed' && o.status !== 'cancelled');
+              const archivedOrders = orders.filter(o => o.status === 'completed' || o.status === 'cancelled');
+              const renderOrder = (order: typeof orders[0]) => (
+                <div key={order.id} className="flex items-center justify-between p-3 rounded-lg border border-border">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-foreground truncate">{order.title}</p>
+                    <p className="text-xs text-muted-foreground">{formatDate(order.created_at)} · #{order.id}</p>
+                    <Badge variant={statusColor[order.status] || 'secondary'} className="mt-1 text-xs">
+                      {statusLabel[order.status] || order.status}
+                    </Badge>
                   </div>
-                )}
-              </CardContent>
-            </Card>
+                  <div className="flex flex-col items-end gap-2 ml-3 flex-shrink-0">
+                    {order.amount > 0 && <span className="font-bold text-foreground">{order.amount.toLocaleString('ru-RU')} ₽</span>}
+                    {order.payment_status !== 'succeeded' && order.status === 'pending' && (
+                      <Button size="sm" onClick={() => handlePay(order.id, order.amount, order.title)} disabled={payLoading}>
+                        {payLoading ? <Icon name="Loader2" size={14} className="animate-spin" /> : 'Оплатить'}
+                      </Button>
+                    )}
+                    {order.status === 'new' && (
+                      <Button size="sm" variant="ghost" className="text-destructive hover:bg-destructive/10 h-7 w-7 p-0"
+                        onClick={async () => {
+                          if (!confirm('Удалить заказ?')) return;
+                          try { await cabinetApi.deleteOrder(token, order.id); await loadData(); }
+                          catch (e: unknown) { toast({ title: 'Ошибка', description: e instanceof Error ? e.message : 'Ошибка', variant: 'destructive' }); }
+                        }}>
+                        <Icon name="Trash2" size={14} />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              );
+              return (
+                <>
+                  <Card className="bg-card border-border">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <Icon name="ShoppingCart" size={18} className="text-primary" />
+                        Мои заказы
+                        {activeOrders.length > 0 && <Badge variant="secondary" className="ml-auto">{activeOrders.length}</Badge>}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {activeOrders.length === 0
+                        ? <p className="text-sm text-muted-foreground text-center py-6">Активных заказов нет</p>
+                        : <div className="space-y-3">{activeOrders.map(renderOrder)}</div>
+                      }
+                    </CardContent>
+                  </Card>
+
+                  {archivedOrders.length > 0 && (
+                    <Card className="bg-card border-border opacity-75">
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-base flex items-center gap-2">
+                          <Icon name="Archive" size={18} className="text-muted-foreground" />
+                          Архив заказов
+                          <Badge variant="secondary" className="ml-auto">{archivedOrders.length}</Badge>
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-3">{archivedOrders.map(renderOrder)}</div>
+                      </CardContent>
+                    </Card>
+                  )}
+                </>
+              );
+            })()}
 
             {/* Uploaded files */}
             {clientFiles.length > 0 && (
