@@ -93,12 +93,8 @@ function CreateOrderDialog({ users, onCreated }: { users: AdminUser[]; onCreated
     e.preventDefault();
     setLoading(true);
     try {
-      const res = await adminApi.createOrder(Number(userId), Number(amount), title);
-      toast({ title: 'Заказ создан', description: `Ссылка на оплату отправлена клиенту в Telegram` });
-      if (res.payment_url) {
-        navigator.clipboard.writeText(res.payment_url).catch(() => {});
-        toast({ title: 'Ссылка скопирована', description: res.payment_url });
-      }
+      await adminApi.createOrder(Number(userId), Number(amount), title);
+      toast({ title: 'Заказ создан', description: 'Клиент получил уведомление в Telegram — он зайдёт в кабинет и оплатит' });
       setOpen(false);
       onCreated();
     } catch (err: unknown) {

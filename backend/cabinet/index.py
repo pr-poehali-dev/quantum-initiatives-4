@@ -454,33 +454,18 @@ def handler(event: dict, context) -> dict:
         order_id = cur.fetchone()[0]
         conn.commit()
 
-        # Создать платёж в ЮКассе
-        idem_key = str(uuid.uuid4())
-        yk_resp = yk_request('POST', '', {
-            'amount': {'value': f'{amount:.2f}', 'currency': 'RUB'},
-            'confirmation': {'type': 'redirect', 'return_url': 'https://ecuproo.ru/cabinet'},
-            'capture': True,
-            'description': f'{title} (заказ #{order_id})',
-            'metadata': {'order_id': str(order_id), 'user_id': str(target_user_id)}
-        }, idem_key)
-        payment_id = yk_resp.get('id')
-        confirm_url = yk_resp.get('confirmation', {}).get('confirmation_url', '')
-        cur.execute(f"UPDATE {SCHEMA}.orders SET payment_id = %s WHERE id = %s", (payment_id, order_id))
-        conn.commit()
-
-        # Уведомить клиента в Telegram
+        # Уведомить клиента в Telegram — пусть идёт в кабинет и оплачивает сам
         try:
+            import urllib.parse
             cur.execute(f"SELECT telegram_id, name FROM {SCHEMA}.users WHERE id = %s", (target_user_id,))
             u_row = cur.fetchone()
             if u_row and u_row[0]:
-                import urllib.parse
                 bot_token = os.environ.get('TELEGRAM_BOT_TOKEN', '')
                 text = (
                     f"💳 *Для вас выставлен счёт*\n\n"
                     f"📋 *Услуга:* {title}\n"
                     f"💵 *Сумма:* {amount:.0f} ₽\n\n"
-                    f"Оплатить: {confirm_url}\n\n"
-                    f"Или войдите в личный кабинет: https://ecuproo.ru/cabinet"
+                    f"Войдите в личный кабинет чтобы оплатить:\nhttps://ecuproo.ru/cabinet"
                 )
                 data = urllib.parse.urlencode({
                     'chat_id': u_row[0],
@@ -497,7 +482,7 @@ def handler(event: dict, context) -> dict:
             pass
 
         conn.close()
-        return ok({'order_id': order_id, 'payment_url': confirm_url})
+        return ok({'order_id': order_id})
 
     if action == 'admin_get_firmware':
         if not check_admin(body):
