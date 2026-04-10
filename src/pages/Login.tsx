@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,6 +8,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { cabinetApi, saveSession } from '@/lib/cabinet-api';
 import Icon from '@/components/ui/icon';
+
+const BOT_USERNAME = 'ecuproo_bot';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -199,53 +201,46 @@ interface TelegramButtonProps {
 
 function TelegramButton({ onSuccess }: TelegramButtonProps) {
   const { toast } = useToast();
+  const containerRef = useRef<HTMLDivElement>(null);
 
-  function handleTelegramClick() {
-    const botName = 'ecuproo_bot';
-    const authUrl = `https://telegram.me/${botName}?start=auth`;
-    const width = 550;
-    const height = 470;
-    const left = window.screenX + (window.outerWidth - width) / 2;
-    const top = window.screenY + (window.outerHeight - height) / 2;
-
-    const popup = window.open(
-      `https://oauth.telegram.org/auth?bot_id=&origin=${encodeURIComponent(window.location.origin)}&embed=1&request_access=write`,
-      'telegram_oauth',
-      `width=${width},height=${height},left=${left},top=${top}`
-    );
-
-    const handler = async (event: MessageEvent) => {
-      if (event.origin !== 'https://oauth.telegram.org') return;
-      window.removeEventListener('message', handler);
-      popup?.close();
-
-      const tgData = event.data;
-      if (!tgData?.id) {
-        toast({ title: 'Ошибка', description: 'Не удалось получить данные Telegram', variant: 'destructive' });
-        return;
-      }
+  useEffect(() => {
+    // Глобальный callback для Telegram виджета
+    (window as unknown as Record<string, unknown>).onTelegramAuth = async (tgData: Record<string, unknown>) => {
       try {
         const res = await cabinetApi.telegramLogin({ ...tgData, action: 'telegram_login' });
         onSuccess(res.token, res.name, res.user_id);
       } catch (err: unknown) {
-        toast({ title: 'Ошибка', description: err instanceof Error ? err.message : 'Ошибка Telegram', variant: 'destructive' });
+        toast({
+          title: 'Ошибка',
+          description: err instanceof Error ? err.message : 'Ошибка входа через Telegram',
+          variant: 'destructive',
+        });
       }
     };
 
-    window.addEventListener('message', handler);
-  }
+    // Вставляем официальный виджет Telegram
+    const script = document.createElement('script');
+    script.src = 'https://telegram.org/js/telegram-widget.js?22';
+    script.setAttribute('data-telegram-login', BOT_USERNAME);
+    script.setAttribute('data-size', 'large');
+    script.setAttribute('data-onauth', 'onTelegramAuth(user)');
+    script.setAttribute('data-request-access', 'write');
+    script.setAttribute('data-userpic', 'false');
+    script.async = true;
+
+    if (containerRef.current) {
+      containerRef.current.innerHTML = '';
+      containerRef.current.appendChild(script);
+    }
+
+    return () => {
+      delete (window as unknown as Record<string, unknown>).onTelegramAuth;
+    };
+  }, []);
 
   return (
-    <Button
-      type="button"
-      variant="outline"
-      className="w-full border-[#2AABEE] text-[#2AABEE] hover:bg-[#2AABEE]/10"
-      onClick={handleTelegramClick}
-    >
-      <svg className="mr-2" width="18" height="18" viewBox="0 0 24 24" fill="#2AABEE">
-        <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221l-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12L7.04 13.845l-2.956-.924c-.642-.2-.657-.642.136-.953l11.57-4.461c.534-.194 1.001.13.834.714z"/>
-      </svg>
-      Войти через Telegram
-    </Button>
+    <div className="w-full flex justify-center">
+      <div ref={containerRef} />
+    </div>
   );
 }
