@@ -312,7 +312,7 @@ def handler(event: dict, context) -> dict:
         order_id = cur.fetchone()[0]
         conn.commit()
 
-        s3_key = f"firmware/client/{user[0]}/{order_id}/{uuid.uuid4().hex}_{file_name}"
+        s3_key = f"firmware/client/{user[0]}/{order_id}/{uuid.uuid4().hex}/{file_name}"
         s3 = get_s3()
         s3.put_object(Bucket='files', Key=s3_key, Body=file_bytes, ContentType='application/octet-stream')
         file_url = f"https://cdn.poehali.dev/projects/{os.environ['AWS_ACCESS_KEY_ID']}/bucket/{s3_key}"
@@ -385,7 +385,7 @@ def handler(event: dict, context) -> dict:
         if not file_data or not target_user_id:
             return err(400, 'file_data и user_id обязательны')
         file_bytes = base64.b64decode(file_data)
-        s3_key = f"firmware/admin/{target_user_id}/{order_id or 'no_order'}/{uuid.uuid4().hex}_{file_name}"
+        s3_key = f"firmware/admin/{target_user_id}/{order_id or 'no_order'}/{uuid.uuid4().hex}/{file_name}"
         s3 = get_s3()
         s3.put_object(Bucket='files', Key=s3_key, Body=file_bytes, ContentType='application/octet-stream')
         file_url = f"https://cdn.poehali.dev/projects/{os.environ['AWS_ACCESS_KEY_ID']}/bucket/{s3_key}"
