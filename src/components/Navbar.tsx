@@ -1,10 +1,13 @@
 import { ThemeToggle } from "@/components/ThemeToggle"
 import { Logo } from "@/components/Logo"
 import { MobileMenu } from "@/components/MobileMenu"
+import { Button } from "@/components/ui/button"
 import { useState, useEffect } from "react"
+import { useNavigate } from "react-router-dom"
 
 export function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false)
+  const navigate = useNavigate()
 
   useEffect(() => {
     const handleScroll = () => {
@@ -45,6 +48,14 @@ export function Navbar() {
           </div>
 
           <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="hidden md:flex border-primary text-primary hover:bg-primary hover:text-white"
+              onClick={() => navigate('/login')}
+            >
+              Личный кабинет
+            </Button>
             <ThemeToggle />
             <MobileMenu />
           </div>

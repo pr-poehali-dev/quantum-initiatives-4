@@ -12,6 +12,7 @@ export function MobileMenu() {
     { href: "#portfolio", label: "Портфолио" },
     { href: "#pricing", label: "Тарифы" },
     { href: "#contact", label: "Контакты" },
+    { href: "/login", label: "Личный кабинет" },
   ]
 
   return (
