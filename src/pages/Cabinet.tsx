@@ -1,8 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { cabinetApi, getToken, getSavedUser, clearSession, type Order, type FirmwareFile } from '@/lib/cabinet-api';
 import Icon from '@/components/ui/icon';
@@ -43,6 +46,11 @@ export default function Cabinet() {
   const [loading, setLoading] = useState(true);
   const [payLoading, setPayLoading] = useState(false);
   const [uploadLoading, setUploadLoading] = useState(false);
+  const [uploadDialog, setUploadDialog] = useState(false);
+  const [carMake, setCarMake] = useState('');
+  const [carModel, setCarModel] = useState('');
+  const [carYear, setCarYear] = useState('');
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -80,21 +88,33 @@ export default function Cabinet() {
     }
   }
 
-  async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+  function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
+    setPendingFile(file);
+    setUploadDialog(true);
+    e.target.value = '';
+  }
+
+  async function handleUploadConfirm() {
+    if (!pendingFile) return;
     setUploadLoading(true);
+    setUploadDialog(false);
+    const carInfo = [carMake, carModel, carYear].filter(Boolean).join(' ');
     try {
       const reader = new FileReader();
       reader.onload = async (ev) => {
         const base64 = (ev.target?.result as string).split(',')[1];
-        await cabinetApi.uploadFirmware(token, base64, file.name);
-        toast({ title: 'Файл загружен', description: `${file.name} успешно отправлен` });
+        await cabinetApi.uploadFirmware(token, base64, pendingFile.name, carInfo || undefined);
+        toast({ title: 'Файл загружен', description: `${pendingFile.name} успешно отправлен` });
+        setPendingFile(null);
+        setCarMake(''); setCarModel(''); setCarYear('');
         await loadData();
       };
-      reader.readAsDataURL(file);
+      reader.readAsDataURL(pendingFile);
     } catch (err: unknown) {
       toast({ title: 'Ошибка', description: err instanceof Error ? err.message : 'Ошибка загрузки', variant: 'destructive' });
+    } finally {
       setUploadLoading(false);
     }
   }
@@ -157,7 +177,7 @@ export default function Cabinet() {
                   type="file"
                   accept=".bin,.hex,.ori,.mod,.damo,.kess,.ktag,*"
                   className="hidden"
-                  onChange={handleFileUpload}
+                  onChange={handleFileSelect}
                 />
                 <Button
                   onClick={() => fileInputRef.current?.click()}
@@ -171,6 +191,42 @@ export default function Cabinet() {
                 </Button>
               </CardContent>
             </Card>
+
+            {/* Car info dialog */}
+            <Dialog open={uploadDialog} onOpenChange={setUploadDialog}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Информация об автомобиле</DialogTitle>
+                </DialogHeader>
+                <p className="text-sm text-muted-foreground">Укажите данные авто — это поможет нам быстрее обработать вашу прошивку.</p>
+                <div className="space-y-3 mt-2">
+                  <div>
+                    <Label>Марка (например: BMW, Audi, Skoda)</Label>
+                    <Input placeholder="BMW" value={carMake} onChange={e => setCarMake(e.target.value)} />
+                  </div>
+                  <div>
+                    <Label>Модель</Label>
+                    <Input placeholder="X5 3.0d" value={carModel} onChange={e => setCarModel(e.target.value)} />
+                  </div>
+                  <div>
+                    <Label>Год выпуска</Label>
+                    <Input placeholder="2019" value={carYear} onChange={e => setCarYear(e.target.value)} />
+                  </div>
+                  {pendingFile && (
+                    <p className="text-xs text-muted-foreground">Файл: {pendingFile.name}</p>
+                  )}
+                </div>
+                <div className="flex gap-2 mt-2">
+                  <Button className="flex-1" onClick={handleUploadConfirm}>
+                    <Icon name="Upload" size={16} className="mr-2" />
+                    Отправить
+                  </Button>
+                  <Button variant="outline" onClick={() => { setUploadDialog(false); setPendingFile(null); }}>
+                    Отмена
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
 
             {/* Ready firmwares from admin */}
             {adminFiles.length > 0 && (
@@ -265,6 +321,9 @@ export default function Cabinet() {
                         <Icon name="File" size={18} className="text-muted-foreground flex-shrink-0" />
                         <div className="min-w-0 flex-1">
                           <p className="text-sm text-foreground truncate">{f.file_name}</p>
+                          {f.car_info && (
+                            <p className="text-xs text-primary font-medium truncate">🚗 {f.car_info}</p>
+                          )}
                           <p className="text-xs text-muted-foreground">{formatDate(f.uploaded_at)} · {formatSize(f.file_size)}</p>
                         </div>
                         <Badge variant="secondary" className="text-xs flex-shrink-0">Отправлен</Badge>

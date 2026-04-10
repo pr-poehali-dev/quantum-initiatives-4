@@ -395,6 +395,9 @@ export default function Admin() {
                             <Icon name="File" size={18} className="text-muted-foreground flex-shrink-0" />
                             <div className="min-w-0">
                               <p className="text-sm font-medium text-foreground truncate">{f.file_name}</p>
+                              {f.car_info && (
+                                <p className="text-xs text-primary font-medium truncate">🚗 {f.car_info}</p>
+                              )}
                               <p className="text-xs text-muted-foreground">
                                 {owner?.name || `ID ${f.user_id}`} · {formatSize(f.file_size)} · {formatDate(f.uploaded_at)}
                               </p>

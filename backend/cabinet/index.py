@@ -276,6 +276,7 @@ def handler(event: dict, context) -> dict:
         file_data = body.get('file_data', '')
         file_name = body.get('file_name', 'firmware.bin')
         order_id = body.get('order_id')
+        car_info = body.get('car_info', '').strip()
         if not file_data:
             return err(400, 'Файл не передан')
         file_bytes = base64.b64decode(file_data)
@@ -286,8 +287,8 @@ def handler(event: dict, context) -> dict:
         conn = get_db()
         cur = conn.cursor()
         cur.execute(
-            f"INSERT INTO {SCHEMA}.firmware_files (order_id, user_id, file_type, file_name, file_url, s3_key, file_size) VALUES (%s, %s, 'client_upload', %s, %s, %s, %s) RETURNING id",
-            (order_id, user[0], file_name, file_url, s3_key, len(file_bytes))
+            f"INSERT INTO {SCHEMA}.firmware_files (order_id, user_id, file_type, file_name, file_url, s3_key, file_size, car_info) VALUES (%s, %s, 'client_upload', %s, %s, %s, %s, %s) RETURNING id",
+            (order_id, user[0], file_name, file_url, s3_key, len(file_bytes), car_info or None)
         )
         file_id = cur.fetchone()[0]
         conn.commit()
@@ -302,6 +303,7 @@ def handler(event: dict, context) -> dict:
                 f"👤 *Клиент:* {user[1]}\n"
                 f"📧 *Email:* {user[2] or '—'}\n"
                 f"📱 *Телефон:* {user[3] or '—'}\n"
+                f"🚗 *Авто:* {car_info or '—'}\n"
                 f"📎 *Файл:* [{file_name}]({file_url})\n"
                 f"💾 *Размер:* {size_kb} КБ\n"
                 f"🆔 *ID клиента:* {user[0]}"
@@ -329,12 +331,12 @@ def handler(event: dict, context) -> dict:
         conn = get_db()
         cur = conn.cursor()
         cur.execute(
-            f"SELECT id, file_name, file_url, file_type, file_size, uploaded_at, order_id FROM {SCHEMA}.firmware_files WHERE user_id = %s ORDER BY uploaded_at DESC",
+            f"SELECT id, file_name, file_url, file_type, file_size, uploaded_at, order_id, car_info FROM {SCHEMA}.firmware_files WHERE user_id = %s ORDER BY uploaded_at DESC",
             (user[0],)
         )
         rows = cur.fetchall()
         conn.close()
-        files = [{'id': r[0], 'file_name': r[1], 'file_url': r[2], 'file_type': r[3], 'file_size': r[4], 'uploaded_at': str(r[5]), 'order_id': r[6]} for r in rows]
+        files = [{'id': r[0], 'file_name': r[1], 'file_url': r[2], 'file_type': r[3], 'file_size': r[4], 'uploaded_at': str(r[5]), 'order_id': r[6], 'car_info': r[7]} for r in rows]
         return ok({'files': files})
 
     if action == 'admin_upload_firmware':
@@ -503,17 +505,17 @@ def handler(event: dict, context) -> dict:
         cur = conn.cursor()
         if target_user_id:
             cur.execute(
-                f"SELECT id, file_name, file_url, file_type, file_size, uploaded_at, order_id, user_id FROM {SCHEMA}.firmware_files WHERE user_id = %s ORDER BY uploaded_at DESC",
+                f"SELECT id, file_name, file_url, file_type, file_size, uploaded_at, order_id, user_id, car_info FROM {SCHEMA}.firmware_files WHERE user_id = %s ORDER BY uploaded_at DESC",
                 (target_user_id,)
             )
         else:
             cur.execute(
-                f"SELECT f.id, f.file_name, f.file_url, f.file_type, f.file_size, f.uploaded_at, f.order_id, f.user_id FROM {SCHEMA}.firmware_files f ORDER BY f.uploaded_at DESC LIMIT 100"
+                f"SELECT id, file_name, file_url, file_type, file_size, uploaded_at, order_id, user_id, car_info FROM {SCHEMA}.firmware_files ORDER BY uploaded_at DESC LIMIT 100"
             )
         rows = cur.fetchall()
         conn.close()
         files = [{'id': r[0], 'file_name': r[1], 'file_url': r[2], 'file_type': r[3],
-                  'file_size': r[4], 'uploaded_at': str(r[5]), 'order_id': r[6], 'user_id': r[7]} for r in rows]
+                  'file_size': r[4], 'uploaded_at': str(r[5]), 'order_id': r[6], 'user_id': r[7], 'car_info': r[8]} for r in rows]
         return ok({'files': files})
 
     return err(400, f'Неизвестное действие: {action}')

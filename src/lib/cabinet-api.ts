@@ -24,6 +24,7 @@ export interface FirmwareFile {
   file_size: number;
   uploaded_at: string;
   order_id?: number;
+  car_info?: string;
 }
 
 async function call(action: string, data: Record<string, unknown> = {}, token?: string) {
@@ -81,6 +82,6 @@ export const cabinetApi = {
 
   getFirmware: (token: string) => call('get_firmware', {}, token),
 
-  uploadFirmware: (token: string, fileData: string, fileName: string, orderId?: number) =>
-    call('upload_firmware', { file_data: fileData, file_name: fileName, order_id: orderId }, token),
+  uploadFirmware: (token: string, fileData: string, fileName: string, carInfo?: string, orderId?: number) =>
+    call('upload_firmware', { file_data: fileData, file_name: fileName, car_info: carInfo, order_id: orderId }, token),
 };
