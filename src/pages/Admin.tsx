@@ -100,9 +100,9 @@ export default function Admin() {
           {/* ORDERS */}
           <TabsContent value="orders">
             <div className="space-y-3">
-              {orders.filter(o => !(o.status === 'pending' && o.payment_status === 'pending')).length === 0 ? (
+              {orders.filter(o => !(o.status === 'pending' && o.payment_status === 'pending' && o.amount === 0)).length === 0 ? (
                 <p className="text-muted-foreground text-sm text-center py-8">Заказов нет</p>
-              ) : orders.filter(o => !(o.status === 'pending' && o.payment_status === 'pending')).map(o => (
+              ) : orders.filter(o => !(o.status === 'pending' && o.payment_status === 'pending' && o.amount === 0)).map(o => (
                 <AdminOrderCard
                   key={o.id}
                   order={o}
