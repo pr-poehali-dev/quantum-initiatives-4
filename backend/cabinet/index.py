@@ -230,7 +230,44 @@ def handler(event: dict, context) -> dict:
                 (payment_status, db_status, order_id, payment_id)
             )
             conn.commit()
-            conn.close()
+
+            if payment_status == 'succeeded':
+                cur.execute(
+                    f"SELECT o.title, o.amount, u.name, u.email, u.phone FROM {SCHEMA}.orders o JOIN {SCHEMA}.users u ON u.id = o.user_id WHERE o.id = %s",
+                    (order_id,)
+                )
+                row = cur.fetchone()
+                conn.close()
+                if row:
+                    try:
+                        import urllib.parse
+                        bot_token = os.environ.get('TELEGRAM_BOT_TOKEN', '')
+                        chat_id = os.environ.get('TELEGRAM_CHAT_ID', '')
+                        text = (
+                            f"💰 *Оплата получена!*\n\n"
+                            f"👤 *Клиент:* {row[2]}\n"
+                            f"📧 *Email:* {row[3] or '—'}\n"
+                            f"📱 *Телефон:* {row[4] or '—'}\n"
+                            f"📋 *Услуга:* {row[0]}\n"
+                            f"💵 *Сумма:* {row[1]} ₽\n"
+                            f"🆔 *Заказ:* #{order_id}"
+                        )
+                        data = urllib.parse.urlencode({
+                            'chat_id': chat_id,
+                            'text': text,
+                            'parse_mode': 'Markdown'
+                        }).encode('utf-8')
+                        req = urllib.request.Request(
+                            f"https://api.telegram.org/bot{bot_token}/sendMessage",
+                            data=data, method='POST'
+                        )
+                        with urllib.request.urlopen(req) as r:
+                            r.read()
+                    except Exception:
+                        pass
+            else:
+                conn.close()
+
         return ok({'ok': True})
 
     if action == 'upload_firmware':
