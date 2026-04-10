@@ -287,19 +287,26 @@ function OrderCard({ order, files, onDelete, onUploaded }: {
         {/* Файлы от клиента */}
         {files.length > 0 ? (
           <div className="space-y-2">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Файл от клиента</p>
-            {files.map(f => (
-              <div key={f.id} className="flex items-start gap-2 p-2 rounded-lg border border-border bg-background">
-                <Icon name="FileCode2" size={16} className="text-primary flex-shrink-0 mt-0.5" />
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+              Файлы от клиента ({files.length})
+            </p>
+            {[...files].sort((a, b) => new Date(b.uploaded_at).getTime() - new Date(a.uploaded_at).getTime()).map((f, idx) => (
+              <div key={f.id} className={`flex items-start gap-2 p-3 rounded-lg border bg-background ${idx === 0 ? 'border-primary/50 ring-1 ring-primary/20' : 'border-border opacity-70'}`}>
+                <Icon name="FileCode2" size={16} className={`flex-shrink-0 mt-0.5 ${idx === 0 ? 'text-primary' : 'text-muted-foreground'}`} />
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium text-foreground truncate">{f.file_name}
-                    <span className="text-xs text-muted-foreground font-normal ml-1">{formatSize(f.file_size)}</span>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="text-sm font-medium text-foreground truncate">{f.file_name}</p>
+                    <span className="text-xs text-muted-foreground">{formatSize(f.file_size)}</span>
+                    {idx === 0 && <Badge className="text-xs h-4 px-1.5 bg-primary/20 text-primary border-0">последний</Badge>}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    🕐 {formatDate(f.uploaded_at)}
                   </p>
-                  {f.car_info && <p className="text-xs text-foreground">🚗 {f.car_info}</p>}
-                  {f.comment && <p className="text-xs text-muted-foreground">💬 {f.comment}</p>}
+                  {f.car_info && <p className="text-xs text-foreground mt-0.5">🚗 {f.car_info}</p>}
+                  {f.comment && <p className="text-xs text-muted-foreground mt-0.5">💬 {f.comment}</p>}
                 </div>
                 <a href={f.file_url} download={f.file_name} target="_blank" rel="noreferrer">
-                  <Button size="sm" variant="outline" className="h-7 text-xs flex-shrink-0">
+                  <Button size="sm" variant={idx === 0 ? 'default' : 'outline'} className="h-7 text-xs flex-shrink-0">
                     <Icon name="Download" size={12} className="mr-1" />Скачать
                   </Button>
                 </a>
