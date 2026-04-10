@@ -362,7 +362,158 @@ def handler(event: dict, context) -> dict:
         if order_id:
             cur.execute(f"UPDATE {SCHEMA}.orders SET status = 'completed' WHERE id = %s", (order_id,))
         conn.commit()
+
+        # Уведомить клиента в Telegram что прошивка готова
+        try:
+            cur.execute(f"SELECT telegram_id FROM {SCHEMA}.users WHERE id = %s", (target_user_id,))
+            tg_row = cur.fetchone()
+            if tg_row and tg_row[0]:
+                import urllib.parse
+                bot_token = os.environ.get('TELEGRAM_BOT_TOKEN', '')
+                text = (
+                    f"✅ *Ваша прошивка готова!*\n\n"
+                    f"📎 Файл: [{file_name}]({file_url})\n\n"
+                    f"Войдите в личный кабинет чтобы скачать: https://ecuproo.ru/cabinet"
+                )
+                data = urllib.parse.urlencode({
+                    'chat_id': tg_row[0],
+                    'text': text,
+                    'parse_mode': 'Markdown'
+                }).encode('utf-8')
+                req = urllib.request.Request(
+                    f"https://api.telegram.org/bot{bot_token}/sendMessage",
+                    data=data, method='POST'
+                )
+                with urllib.request.urlopen(req) as r:
+                    r.read()
+        except Exception:
+            pass
+
         conn.close()
         return ok({'file_id': file_id, 'file_url': file_url})
+
+    # ── ADMIN ─────────────────────────────────────────────
+
+    def check_admin(b: dict) -> bool:
+        return b.get('admin_key', '') == os.environ.get('ADMIN_SECRET_KEY', '')
+
+    if action == 'admin_get_users':
+        if not check_admin(body):
+            return err(403, 'Доступ запрещён')
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute(
+            f"SELECT u.id, u.name, u.email, u.phone, u.telegram_id, u.created_at, "
+            f"COUNT(o.id) AS orders_count "
+            f"FROM {SCHEMA}.users u "
+            f"LEFT JOIN {SCHEMA}.orders o ON o.user_id = u.id "
+            f"GROUP BY u.id ORDER BY u.created_at DESC"
+        )
+        rows = cur.fetchall()
+        conn.close()
+        users = [{'id': r[0], 'name': r[1], 'email': r[2], 'phone': r[3],
+                  'telegram_id': r[4], 'created_at': str(r[5]), 'orders_count': r[6]} for r in rows]
+        return ok({'users': users})
+
+    if action == 'admin_get_orders':
+        if not check_admin(body):
+            return err(403, 'Доступ запрещён')
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute(
+            f"SELECT o.id, o.title, o.amount, o.status, o.payment_status, o.created_at, "
+            f"u.id, u.name, u.email, u.phone "
+            f"FROM {SCHEMA}.orders o JOIN {SCHEMA}.users u ON u.id = o.user_id "
+            f"ORDER BY o.created_at DESC LIMIT 100"
+        )
+        rows = cur.fetchall()
+        conn.close()
+        orders = [{'id': r[0], 'title': r[1], 'amount': float(r[2]), 'status': r[3],
+                   'payment_status': r[4], 'created_at': str(r[5]),
+                   'user': {'id': r[6], 'name': r[7], 'email': r[8], 'phone': r[9]}} for r in rows]
+        return ok({'orders': orders})
+
+    if action == 'admin_create_order':
+        if not check_admin(body):
+            return err(403, 'Доступ запрещён')
+        target_user_id = body.get('user_id')
+        amount = float(body.get('amount', 0))
+        title = body.get('title', 'Услуга прошивки ЭБУ')
+        if not target_user_id or amount <= 0:
+            return err(400, 'user_id и amount обязательны')
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute(
+            f"INSERT INTO {SCHEMA}.orders (user_id, title, amount, status) VALUES (%s, %s, %s, 'pending') RETURNING id",
+            (target_user_id, title, amount)
+        )
+        order_id = cur.fetchone()[0]
+        conn.commit()
+
+        # Создать платёж в ЮКассе
+        idem_key = str(uuid.uuid4())
+        yk_resp = yk_request('POST', '', {
+            'amount': {'value': f'{amount:.2f}', 'currency': 'RUB'},
+            'confirmation': {'type': 'redirect', 'return_url': 'https://ecuproo.ru/cabinet'},
+            'capture': True,
+            'description': f'{title} (заказ #{order_id})',
+            'metadata': {'order_id': str(order_id), 'user_id': str(target_user_id)}
+        }, idem_key)
+        payment_id = yk_resp.get('id')
+        confirm_url = yk_resp.get('confirmation', {}).get('confirmation_url', '')
+        cur.execute(f"UPDATE {SCHEMA}.orders SET payment_id = %s WHERE id = %s", (payment_id, order_id))
+        conn.commit()
+
+        # Уведомить клиента в Telegram
+        try:
+            cur.execute(f"SELECT telegram_id, name FROM {SCHEMA}.users WHERE id = %s", (target_user_id,))
+            u_row = cur.fetchone()
+            if u_row and u_row[0]:
+                import urllib.parse
+                bot_token = os.environ.get('TELEGRAM_BOT_TOKEN', '')
+                text = (
+                    f"💳 *Для вас выставлен счёт*\n\n"
+                    f"📋 *Услуга:* {title}\n"
+                    f"💵 *Сумма:* {amount:.0f} ₽\n\n"
+                    f"Оплатить: {confirm_url}\n\n"
+                    f"Или войдите в личный кабинет: https://ecuproo.ru/cabinet"
+                )
+                data = urllib.parse.urlencode({
+                    'chat_id': u_row[0],
+                    'text': text,
+                    'parse_mode': 'Markdown'
+                }).encode('utf-8')
+                req = urllib.request.Request(
+                    f"https://api.telegram.org/bot{bot_token}/sendMessage",
+                    data=data, method='POST'
+                )
+                with urllib.request.urlopen(req) as r:
+                    r.read()
+        except Exception:
+            pass
+
+        conn.close()
+        return ok({'order_id': order_id, 'payment_url': confirm_url})
+
+    if action == 'admin_get_firmware':
+        if not check_admin(body):
+            return err(403, 'Доступ запрещён')
+        target_user_id = body.get('user_id')
+        conn = get_db()
+        cur = conn.cursor()
+        if target_user_id:
+            cur.execute(
+                f"SELECT id, file_name, file_url, file_type, file_size, uploaded_at, order_id, user_id FROM {SCHEMA}.firmware_files WHERE user_id = %s ORDER BY uploaded_at DESC",
+                (target_user_id,)
+            )
+        else:
+            cur.execute(
+                f"SELECT f.id, f.file_name, f.file_url, f.file_type, f.file_size, f.uploaded_at, f.order_id, f.user_id FROM {SCHEMA}.firmware_files f ORDER BY f.uploaded_at DESC LIMIT 100"
+            )
+        rows = cur.fetchall()
+        conn.close()
+        files = [{'id': r[0], 'file_name': r[1], 'file_url': r[2], 'file_type': r[3],
+                  'file_size': r[4], 'uploaded_at': str(r[5]), 'order_id': r[6], 'user_id': r[7]} for r in rows]
+        return ok({'files': files})
 
     return err(400, f'Неизвестное действие: {action}')

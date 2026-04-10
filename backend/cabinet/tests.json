@@ -4,7 +4,7 @@
       "name": "Register new user",
       "method": "POST",
       "path": "/",
-      "body": {"action": "register", "email": "testcabinet3@ecuproo.ru", "password": "Test1234", "name": "Тест Кабинет"},
+      "body": {"action": "register", "email": "testcabinet4@ecuproo.ru", "password": "Test1234", "name": "Тест Кабинет"},
       "expectedStatus": 200,
       "expectedBody": {"token": "string"},
       "bodyMatcher": "partial"
@@ -13,7 +13,7 @@
       "name": "Login user",
       "method": "POST",
       "path": "/",
-      "body": {"action": "login", "email": "testcabinet3@ecuproo.ru", "password": "Test1234"},
+      "body": {"action": "login", "email": "testcabinet4@ecuproo.ru", "password": "Test1234"},
       "expectedStatus": 200,
       "expectedBody": {"token": "string"},
       "bodyMatcher": "partial"
