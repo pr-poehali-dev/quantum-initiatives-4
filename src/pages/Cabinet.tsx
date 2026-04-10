@@ -301,7 +301,7 @@ export default function Cabinet() {
                           </Badge>
                         </div>
                         <div className="flex flex-col items-end gap-2 ml-3 flex-shrink-0">
-                          <span className="font-bold text-foreground">{order.amount.toLocaleString('ru-RU')} ₽</span>
+                          {order.amount > 0 && <span className="font-bold text-foreground">{order.amount.toLocaleString('ru-RU')} ₽</span>}
                           {order.payment_status !== 'succeeded' && order.status === 'pending' && (
                             <Button
                               size="sm"
@@ -309,6 +309,24 @@ export default function Cabinet() {
                               disabled={payLoading}
                             >
                               {payLoading ? <Icon name="Loader2" size={14} className="animate-spin" /> : 'Оплатить'}
+                            </Button>
+                          )}
+                          {order.status === 'new' && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="text-destructive hover:bg-destructive/10 h-7 w-7 p-0"
+                              onClick={async () => {
+                                if (!confirm('Удалить заказ?')) return;
+                                try {
+                                  await cabinetApi.deleteOrder(token, order.id);
+                                  await loadData();
+                                } catch (e: unknown) {
+                                  toast({ title: 'Ошибка', description: e instanceof Error ? e.message : 'Ошибка', variant: 'destructive' });
+                                }
+                              }}
+                            >
+                              <Icon name="Trash2" size={14} />
                             </Button>
                           )}
                         </div>

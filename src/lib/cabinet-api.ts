@@ -85,4 +85,7 @@ export const cabinetApi = {
 
   uploadFirmware: (token: string, fileData: string, fileName: string, carInfo?: string, comment?: string, orderId?: number) =>
     call('upload_firmware', { file_data: fileData, file_name: fileName, car_info: carInfo, comment, order_id: orderId }, token),
+
+  deleteOrder: (token: string, orderId: number) =>
+    call('delete_order', { order_id: orderId }, token),
 };

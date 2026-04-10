@@ -594,6 +594,27 @@ def handler(event: dict, context) -> dict:
                   'file_size': r[4], 'uploaded_at': str(r[5]), 'order_id': r[6], 'user_id': r[7], 'car_info': r[8], 'comment': r[9]} for r in rows]
         return ok({'files': files})
 
+    if action == 'delete_order':
+        if not user:
+            return err(401, 'Не авторизован')
+        order_id = body.get('order_id')
+        if not order_id:
+            return err(400, 'order_id обязателен')
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute(
+            f"SELECT id FROM {SCHEMA}.orders WHERE id = %s AND user_id = %s AND status = 'new'",
+            (order_id, user[0])
+        )
+        if not cur.fetchone():
+            conn.close()
+            return err(403, 'Заказ не найден или нельзя удалить')
+        cur.execute(f"UPDATE {SCHEMA}.firmware_files SET order_id = NULL WHERE order_id = %s", (order_id,))
+        cur.execute(f"DELETE FROM {SCHEMA}.orders WHERE id = %s", (order_id,))
+        conn.commit()
+        conn.close()
+        return ok({'ok': True})
+
     if action == 'admin_delete_order':
         if not check_admin(body):
             return err(403, 'Доступ запрещён')
