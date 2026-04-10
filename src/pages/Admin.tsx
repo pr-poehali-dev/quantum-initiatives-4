@@ -99,10 +99,11 @@ export default function Admin() {
 
           {/* ORDERS */}
           <TabsContent value="orders">
-            <div className="space-y-3">
-              {orders.filter(o => !(o.status === 'pending' && o.payment_status === 'pending' && o.amount === 0)).length === 0 ? (
-                <p className="text-muted-foreground text-sm text-center py-8">Заказов нет</p>
-              ) : orders.filter(o => !(o.status === 'pending' && o.payment_status === 'pending' && o.amount === 0)).map(o => (
+            {(() => {
+              const visible = orders.filter(o => !(o.status === 'pending' && o.payment_status === 'pending' && o.amount === 0));
+              const activeOrders = visible.filter(o => o.status !== 'completed' && o.status !== 'cancelled');
+              const archivedOrders = visible.filter(o => o.status === 'completed' || o.status === 'cancelled');
+              const renderCard = (o: typeof orders[0]) => (
                 <AdminOrderCard
                   key={o.id}
                   order={o}
@@ -115,8 +116,28 @@ export default function Admin() {
                   }}
                   onUploaded={loadAll}
                 />
-              ))}
-            </div>
+              );
+              return (
+                <div className="space-y-6">
+                  <div className="space-y-3">
+                    {activeOrders.length === 0
+                      ? <p className="text-muted-foreground text-sm text-center py-8">Активных заказов нет</p>
+                      : activeOrders.map(renderCard)
+                    }
+                  </div>
+                  {archivedOrders.length > 0 && (
+                    <div className="space-y-3">
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-2">
+                        <Icon name="Archive" size={14} />Архив ({archivedOrders.length})
+                      </p>
+                      <div className="space-y-3 opacity-60">
+                        {archivedOrders.map(renderCard)}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </TabsContent>
 
           {/* USERS */}
