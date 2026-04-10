@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -9,6 +9,98 @@ import Icon from '@/components/ui/icon';
 import AdminLogin from '@/pages/admin/AdminLogin';
 import { CreateOrderDialog, UploadFirmwareDialog } from '@/pages/admin/AdminDialogs';
 import AdminOrderCard, { formatDate, formatSize } from '@/pages/admin/AdminOrderCard';
+
+function ArchiveTab({ orders, files, onDelete, onUploaded }: {
+  orders: AdminOrder[];
+  files: AdminFile[];
+  onDelete: (id: number) => void;
+  onUploaded: () => void;
+}) {
+  const [openUsers, setOpenUsers] = useState<Record<number, boolean>>({});
+  const [openDates, setOpenDates] = useState<Record<string, boolean>>({});
+
+  const toggleUser = useCallback((id: number) => setOpenUsers(p => ({ ...p, [id]: !p[id] })), []);
+  const toggleDate = useCallback((key: string) => setOpenDates(p => ({ ...p, [key]: !p[key] })), []);
+
+  const archived = orders.filter(o => o.status === 'completed' || o.status === 'cancelled');
+
+  if (archived.length === 0) {
+    return <p className="text-muted-foreground text-sm text-center py-8">Архив пуст</p>;
+  }
+
+  // Группируем: userId → dateStr → orders
+  const byUser = archived.reduce<Record<number, { user: AdminOrder['user']; byDate: Record<string, AdminOrder[]> }>>((acc, o) => {
+    if (!acc[o.user.id]) acc[o.user.id] = { user: o.user, byDate: {} };
+    const date = new Date(o.created_at).toLocaleDateString('ru-RU', { day: '2-digit', month: 'long', year: 'numeric' });
+    if (!acc[o.user.id].byDate[date]) acc[o.user.id].byDate[date] = [];
+    acc[o.user.id].byDate[date].push(o);
+    return acc;
+  }, {});
+
+  return (
+    <div className="space-y-2">
+      {Object.values(byUser).map(({ user, byDate }) => {
+        const totalOrders = Object.values(byDate).flat().length;
+        const isUserOpen = !!openUsers[user.id];
+        return (
+          <div key={user.id} className="border border-border rounded-lg overflow-hidden">
+            {/* Клиент — заголовок */}
+            <button
+              className="w-full flex items-center gap-3 px-4 py-3 bg-muted/30 hover:bg-muted/50 transition-colors text-left"
+              onClick={() => toggleUser(user.id)}
+            >
+              <Icon name={isUserOpen ? 'ChevronDown' : 'ChevronRight'} size={16} className="text-muted-foreground flex-shrink-0" />
+              <Icon name="User" size={16} className="text-primary flex-shrink-0" />
+              <span className="font-semibold text-foreground text-sm">{user.name}</span>
+              {user.phone && <span className="text-xs text-muted-foreground">· {user.phone}</span>}
+              {user.email && <span className="text-xs text-muted-foreground">· {user.email}</span>}
+              <Badge variant="secondary" className="text-xs ml-auto">{totalOrders} заказов</Badge>
+            </button>
+
+            {/* Даты */}
+            {isUserOpen && (
+              <div className="divide-y divide-border">
+                {Object.entries(byDate).map(([date, dateOrders]) => {
+                  const dateKey = `${user.id}_${date}`;
+                  const isDateOpen = !!openDates[dateKey];
+                  return (
+                    <div key={date}>
+                      <button
+                        className="w-full flex items-center gap-3 px-6 py-2.5 hover:bg-muted/30 transition-colors text-left"
+                        onClick={() => toggleDate(dateKey)}
+                      >
+                        <Icon name={isDateOpen ? 'ChevronDown' : 'ChevronRight'} size={14} className="text-muted-foreground flex-shrink-0" />
+                        <Icon name="CalendarDays" size={14} className="text-muted-foreground flex-shrink-0" />
+                        <span className="text-sm text-foreground">{date}</span>
+                        <Badge variant="outline" className="text-xs ml-auto">{dateOrders.length}</Badge>
+                      </button>
+
+                      {/* Заказы */}
+                      {isDateOpen && (
+                        <div className="px-6 pb-4 pt-2 space-y-3 bg-background/50">
+                          {dateOrders.map(o => (
+                            <AdminOrderCard
+                              key={o.id}
+                              order={o}
+                              files={files.filter(f => f.user_id === o.user.id && f.file_type === 'client_upload')}
+                              adminFiles={files.filter(f => f.user_id === o.user.id && f.file_type === 'admin_upload')}
+                              onDelete={() => onDelete(o.id)}
+                              onUploaded={onUploaded}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 export default function Admin() {
   const [authed, setAuthed] = useState(!!getAdminKey());
@@ -132,49 +224,11 @@ export default function Admin() {
 
           {/* ARCHIVE */}
           <TabsContent value="archive">
-            {(() => {
-              const archivedOrders = orders.filter(o => o.status === 'completed' || o.status === 'cancelled');
-              if (archivedOrders.length === 0) {
-                return <p className="text-muted-foreground text-sm text-center py-8">Архив пуст</p>;
-              }
-              // Группируем по клиентам
-              const byUser = archivedOrders.reduce<Record<number, { user: typeof archivedOrders[0]['user'], orders: typeof archivedOrders }>>((acc, o) => {
-                if (!acc[o.user.id]) acc[o.user.id] = { user: o.user, orders: [] };
-                acc[o.user.id].orders.push(o);
-                return acc;
-              }, {});
-              return (
-                <div className="space-y-6">
-                  {Object.values(byUser).map(({ user, orders: userOrders }) => (
-                    <div key={user.id} className="space-y-3">
-                      <div className="flex items-center gap-2 px-1">
-                        <Icon name="User" size={14} className="text-muted-foreground" />
-                        <span className="text-sm font-semibold text-foreground">{user.name}</span>
-                        {user.phone && <span className="text-xs text-muted-foreground">· {user.phone}</span>}
-                        {user.email && <span className="text-xs text-muted-foreground">· {user.email}</span>}
-                        <Badge variant="secondary" className="text-xs ml-auto">{userOrders.length} заказов</Badge>
-                      </div>
-                      <div className="space-y-3 opacity-70">
-                        {userOrders.map(o => (
-                          <AdminOrderCard
-                            key={o.id}
-                            order={o}
-                            files={files.filter(f => f.user_id === o.user.id && f.file_type === 'client_upload')}
-                            adminFiles={files.filter(f => f.user_id === o.user.id && f.file_type === 'admin_upload')}
-                            onDelete={async () => {
-                              if (!confirm(`Удалить заказ #${o.id}?`)) return;
-                              try { await adminApi.deleteOrder(o.id); toast({ title: 'Заказ удалён' }); loadAll(); }
-                              catch (e: unknown) { toast({ title: 'Ошибка', description: e instanceof Error ? e.message : 'Ошибка', variant: 'destructive' }); }
-                            }}
-                            onUploaded={loadAll}
-                          />
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              );
-            })()}
+            <ArchiveTab orders={orders} files={files} onDelete={async (id) => {
+              if (!confirm(`Удалить заказ #${id}?`)) return;
+              try { await adminApi.deleteOrder(id); toast({ title: 'Заказ удалён' }); loadAll(); }
+              catch (e: unknown) { toast({ title: 'Ошибка', description: e instanceof Error ? e.message : 'Ошибка', variant: 'destructive' }); }
+            }} onUploaded={loadAll} />
           </TabsContent>
 
           {/* USERS */}
