@@ -307,54 +307,98 @@ export default function Admin() {
 
           {/* ORDERS */}
           <TabsContent value="orders">
-            <Card className="bg-card border-border">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base">Все заказы</CardTitle>
-              </CardHeader>
-              <CardContent>
+            <div className="space-y-3">
                 {orders.length === 0 ? (
                   <p className="text-muted-foreground text-sm text-center py-8">Заказов нет</p>
                 ) : (
-                  <div className="space-y-2">
-                    {orders.map(o => (
-                      <div key={o.id} className="flex items-center justify-between p-3 rounded-lg border border-border gap-3">
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-sm font-medium text-foreground">#{o.id} {o.title}</span>
-                            <Badge variant={o.payment_status === 'succeeded' ? 'default' : 'secondary'} className="text-xs">
-                              {statusLabel[o.status] || o.status}
-                            </Badge>
+                  orders.map(o => {
+                    const allClientFiles = files.filter(f => f.user_id === o.user.id && f.file_type === 'client_upload');
+                    const isPaid = o.payment_status === 'succeeded';
+                    return (
+                      <Card key={o.id} className={`border ${isPaid ? 'border-green-500/40 bg-green-500/5' : 'border-border bg-card'}`}>
+                        <CardContent className="pt-4 pb-4 space-y-3">
+                          {/* Шапка заказа */}
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-bold text-foreground">#{o.id}</span>
+                                <span className="text-sm text-foreground">{o.title}</span>
+                                <Badge variant={isPaid ? 'default' : 'secondary'} className="text-xs">
+                                  {isPaid ? '✅ Оплачен' : statusLabel[o.status] || o.status}
+                                </Badge>
+                              </div>
+                              <p className="text-xs text-muted-foreground mt-1">{formatDate(o.created_at)}</p>
+                            </div>
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                              <span className="font-bold text-lg text-foreground">{o.amount.toLocaleString('ru-RU')} ₽</span>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="text-destructive hover:text-destructive hover:bg-destructive/10 h-7 w-7 p-0"
+                                onClick={async () => {
+                                  if (!confirm(`Удалить заказ #${o.id}?`)) return;
+                                  try {
+                                    await adminApi.deleteOrder(o.id);
+                                    toast({ title: 'Заказ удалён' });
+                                    loadAll();
+                                  } catch (e: unknown) {
+                                    toast({ title: 'Ошибка', description: e instanceof Error ? e.message : 'Ошибка', variant: 'destructive' });
+                                  }
+                                }}
+                              >
+                                <Icon name="Trash2" size={14} />
+                              </Button>
+                            </div>
                           </div>
-                          <p className="text-xs text-muted-foreground mt-0.5">
-                            {o.user.name} {o.user.email ? `· ${o.user.email}` : ''} · {formatDate(o.created_at)}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-2 flex-shrink-0">
-                          <span className="font-bold text-foreground">{o.amount.toLocaleString('ru-RU')} ₽</span>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="text-destructive hover:text-destructive hover:bg-destructive/10 h-7 w-7 p-0"
-                            onClick={async () => {
-                              if (!confirm(`Удалить заказ #${o.id}?`)) return;
-                              try {
-                                await adminApi.deleteOrder(o.id);
-                                toast({ title: 'Заказ удалён' });
-                                loadAll();
-                              } catch (e: unknown) {
-                                toast({ title: 'Ошибка', description: e instanceof Error ? e.message : 'Ошибка', variant: 'destructive' });
-                              }
-                            }}
-                          >
-                            <Icon name="Trash2" size={14} />
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+
+                          {/* Клиент */}
+                          <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/50">
+                            <Icon name="User" size={15} className="text-primary flex-shrink-0" />
+                            <div className="text-sm">
+                              <span className="font-medium text-foreground">{o.user.name}</span>
+                              {o.user.email && <span className="text-muted-foreground"> · {o.user.email}</span>}
+                              {o.user.phone && <span className="text-muted-foreground"> · {o.user.phone}</span>}
+                            </div>
+                          </div>
+
+                          {/* Файлы прошивок от клиента */}
+                          {allClientFiles.length > 0 && (
+                            <div className="space-y-1.5">
+                              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Файлы от клиента</p>
+                              {allClientFiles.map(f => (
+                                <div key={f.id} className="flex items-start gap-2 p-2 rounded-lg border border-border bg-background">
+                                  <Icon name="FileCode" size={16} className="text-primary flex-shrink-0 mt-0.5" />
+                                  <div className="min-w-0 flex-1">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <a href={f.file_url} download={f.file_name} target="_blank" rel="noreferrer"
+                                        className="text-sm font-medium text-primary hover:underline truncate">
+                                        {f.file_name}
+                                      </a>
+                                      <span className="text-xs text-muted-foreground">{formatSize(f.file_size)}</span>
+                                    </div>
+                                    {f.car_info && <p className="text-xs text-foreground mt-0.5">🚗 {f.car_info}</p>}
+                                    {f.comment && <p className="text-xs text-muted-foreground mt-0.5">💬 {f.comment}</p>}
+                                    <p className="text-xs text-muted-foreground mt-0.5">{formatDate(f.uploaded_at)}</p>
+                                  </div>
+                                  <a href={f.file_url} download={f.file_name} target="_blank" rel="noreferrer">
+                                    <Button size="sm" variant="outline" className="h-7 text-xs flex-shrink-0">
+                                      <Icon name="Download" size={12} className="mr-1" />Скачать
+                                    </Button>
+                                  </a>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          {allClientFiles.length === 0 && (
+                            <p className="text-xs text-muted-foreground italic">Клиент ещё не загрузил файл прошивки</p>
+                          )}
+                        </CardContent>
+                      </Card>
+                    );
+                  })
                 )}
-              </CardContent>
-            </Card>
+            </div>
           </TabsContent>
 
           {/* USERS */}
