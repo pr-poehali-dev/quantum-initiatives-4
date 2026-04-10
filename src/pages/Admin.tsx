@@ -11,7 +11,7 @@ import { adminApi, getAdminKey, saveAdminKey, clearAdminKey, type AdminUser, typ
 import Icon from '@/components/ui/icon';
 
 const statusLabel: Record<string, string> = {
-  pending: 'Ожидает', paid: 'Оплачен', completed: 'Выполнен', cancelled: 'Отменён',
+  new: 'Новый', pending: 'Ожидает оплаты', paid: 'Оплачен', completed: 'Выполнен', cancelled: 'Отменён',
 };
 
 function formatDate(str: string) {
@@ -229,6 +229,7 @@ function OrderCard({ order, files, adminFiles, onDelete, onUploaded }: {
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const isPaid = order.payment_status === 'succeeded';
+  const isNew = order.status === 'new';
 
   async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -253,7 +254,7 @@ function OrderCard({ order, files, adminFiles, onDelete, onUploaded }: {
   }
 
   return (
-    <Card className={`border-2 ${isPaid ? 'border-green-500/50' : 'border-border'} bg-card`}>
+    <Card className={`border-2 ${isPaid ? 'border-green-500/50' : isNew ? 'border-blue-500/50' : 'border-border'} bg-card`}>
       <CardContent className="pt-4 pb-4 space-y-3">
 
         {/* Шапка */}
@@ -263,11 +264,13 @@ function OrderCard({ order, files, adminFiles, onDelete, onUploaded }: {
             <span className="text-sm text-foreground">{order.title}</span>
             {isPaid
               ? <Badge className="bg-green-500 text-white text-xs">✅ Оплачено</Badge>
-              : <Badge variant="secondary" className="text-xs">⏳ Не оплачено</Badge>
+              : isNew
+                ? <Badge className="bg-blue-500 text-white text-xs">🆕 Новый заказ</Badge>
+                : <Badge variant="secondary" className="text-xs">⏳ Ожидает оплаты</Badge>
             }
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
-            <span className="font-bold text-foreground">{order.amount.toLocaleString('ru-RU')} ₽</span>
+            {order.amount > 0 && <span className="font-bold text-foreground">{order.amount.toLocaleString('ru-RU')} ₽</span>}
             <Button size="sm" variant="ghost"
               className="text-destructive hover:bg-destructive/10 h-7 w-7 p-0"
               onClick={onDelete}>
@@ -284,6 +287,14 @@ function OrderCard({ order, files, adminFiles, onDelete, onUploaded }: {
           {order.user.email && <span className="text-xs text-muted-foreground">· {order.user.email}</span>}
           <span className="text-xs text-muted-foreground ml-auto">{formatDate(order.created_at)}</span>
         </div>
+
+        {/* Авто и комментарий из заказа (если нет файлов) */}
+        {files.length === 0 && (order.car_info || order.comment) && (
+          <div className="px-3 py-2 rounded-lg bg-muted/20 space-y-1">
+            {order.car_info && <p className="text-xs text-foreground">🚗 {order.car_info}</p>}
+            {order.comment && <p className="text-xs text-muted-foreground">💬 {order.comment}</p>}
+          </div>
+        )}
 
         {/* Файлы от клиента */}
         {files.length > 0 ? (

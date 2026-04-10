@@ -40,6 +40,8 @@ export interface AdminOrder {
   status: string;
   payment_status: string;
   created_at: string;
+  car_info?: string;
+  comment?: string;
   user: { id: number; name: string; email?: string; phone?: string };
 }
 

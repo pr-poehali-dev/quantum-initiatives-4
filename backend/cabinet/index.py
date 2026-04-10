@@ -279,23 +279,37 @@ def handler(event: dict, context) -> dict:
             return err(401, 'Не авторизован')
         file_data = body.get('file_data', '')
         file_name = body.get('file_name', 'firmware.bin')
-        order_id = body.get('order_id')
         car_info = body.get('car_info', '').strip()
         comment = body.get('comment', '').strip()
         if not file_data:
             return err(400, 'Файл не передан')
         file_bytes = base64.b64decode(file_data)
-        s3_key = f"firmware/client/{user[0]}/{order_id or 'no_order'}/{uuid.uuid4().hex}_{file_name}"
+
+        conn = get_db()
+        cur = conn.cursor()
+
+        # Создаём заказ автоматически при загрузке файла
+        title = f"Прошивка{' — ' + car_info if car_info else ''}"
+        cur.execute(
+            f"INSERT INTO {SCHEMA}.orders (user_id, title, amount, status, payment_status, car_info, comment) VALUES (%s, %s, 0, 'new', 'pending', %s, %s) RETURNING id",
+            (user[0], title, car_info or None, comment or None)
+        )
+        order_id = cur.fetchone()[0]
+        conn.commit()
+
+        s3_key = f"firmware/client/{user[0]}/{order_id}/{uuid.uuid4().hex}_{file_name}"
         s3 = get_s3()
         s3.put_object(Bucket='files', Key=s3_key, Body=file_bytes, ContentType='application/octet-stream')
         file_url = f"https://cdn.poehali.dev/projects/{os.environ['AWS_ACCESS_KEY_ID']}/bucket/{s3_key}"
-        conn = get_db()
-        cur = conn.cursor()
+
         cur.execute(
             f"INSERT INTO {SCHEMA}.firmware_files (order_id, user_id, file_type, file_name, file_url, s3_key, file_size, car_info, comment) VALUES (%s, %s, 'client_upload', %s, %s, %s, %s, %s, %s) RETURNING id",
             (order_id, user[0], file_name, file_url, s3_key, len(file_bytes), car_info or None, comment or None)
         )
         file_id = cur.fetchone()[0]
+
+        # Привязываем файл к заказу
+        cur.execute(f"UPDATE {SCHEMA}.orders SET firmware_file_id = %s WHERE id = %s", (file_id, order_id))
         conn.commit()
         conn.close()
 
@@ -304,7 +318,7 @@ def handler(event: dict, context) -> dict:
             chat_id = os.environ.get('TELEGRAM_CHAT_ID', '')
             size_kb = round(len(file_bytes) / 1024, 1)
             text = (
-                f"📂 *Новый файл прошивки от клиента*\n\n"
+                f"📂 *Новый заказ от клиента*\n\n"
                 f"👤 *Клиент:* {user[1]}\n"
                 f"📧 *Email:* {user[2] or '—'}\n"
                 f"📱 *Телефон:* {user[3] or '—'}\n"
@@ -312,7 +326,7 @@ def handler(event: dict, context) -> dict:
                 f"💬 *Комментарий:* {comment or '—'}\n"
                 f"📎 *Файл:* [{file_name}]({file_url})\n"
                 f"💾 *Размер:* {size_kb} КБ\n"
-                f"🆔 *ID клиента:* {user[0]}"
+                f"🆔 *Заказ №{order_id}*"
             )
             import urllib.parse
             data = urllib.parse.urlencode({
@@ -329,7 +343,7 @@ def handler(event: dict, context) -> dict:
         except Exception:
             pass
 
-        return ok({'file_id': file_id, 'file_url': file_url, 'file_name': file_name})
+        return ok({'file_id': file_id, 'file_url': file_url, 'file_name': file_name, 'order_id': order_id})
 
     if action == 'get_firmware':
         if not user:
@@ -430,15 +444,16 @@ def handler(event: dict, context) -> dict:
         cur = conn.cursor()
         cur.execute(
             f"SELECT o.id, o.title, o.amount, o.status, o.payment_status, o.created_at, "
-            f"u.id, u.name, u.email, u.phone "
+            f"u.id, u.name, u.email, u.phone, o.car_info, o.comment "
             f"FROM {SCHEMA}.orders o JOIN {SCHEMA}.users u ON u.id = o.user_id "
             f"ORDER BY o.created_at DESC LIMIT 100"
         )
         rows = cur.fetchall()
         conn.close()
-        orders = [{'id': r[0], 'title': r[1], 'amount': float(r[2]), 'status': r[3],
+        orders = [{'id': r[0], 'title': r[1], 'amount': float(r[2] or 0), 'status': r[3],
                    'payment_status': r[4], 'created_at': str(r[5]),
-                   'user': {'id': r[6], 'name': r[7], 'email': r[8], 'phone': r[9]}} for r in rows]
+                   'user': {'id': r[6], 'name': r[7], 'email': r[8], 'phone': r[9]},
+                   'car_info': r[10], 'comment': r[11]} for r in rows]
         return ok({'orders': orders})
 
     if action == 'admin_create_order':
